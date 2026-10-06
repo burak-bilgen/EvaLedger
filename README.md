@@ -91,6 +91,7 @@ EvaLedgerTests/
 
 ## Where the Fake Lives
 The fake bank lives in a single, self-contained file: `EvaLedger/Fake/FakeBank.swift`.
-- It maintains its own state (balances, transaction log, idempotency records), completely isolated from client storage. When run in the app, it persists to a separate file (`evaledger_bank.json`) so process restarts do not wipe the bank. In automated tests, it runs in-memory for speed and isolation.
-- It intercepts app HTTP requests using a custom `URLProtocol` registered on the app's `URLSession`.
+- FakeBank is a single file (`Fake/FakeBank.swift`) that answers real HTTP requests through a custom `URLProtocol` registered on the app's own `URLSession`.
+- In the app, its state is persisted to its own JSON file (`evaledger_bank.json`), separate from the ledger file, so killing the app does not wipe the bank. In tests it runs in-memory by default (isolation, determinism), and persistence has its own dedicated test suite.
+- Both bank and app state can be reset simultaneously via the DEBUG "Reset bank and app data" button in the debug panel.
 - The app production UI and view models never reference `FakeBank` directly (the UI only talks to `PaymentEngine` and `LedgerState`). Only the composition root (`AppEnvironment`) constructs `FakeBank` and registers its `URLSession`. Under `#if DEBUG`, debug controls are exposed via the `BankDebugControls` protocol to `DebugPanelView` for simulator testing, while Release builds contain zero references to debug controls or fake bank in the UI layer.
