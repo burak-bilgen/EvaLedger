@@ -225,7 +225,7 @@ public actor PaymentEngine {
                 return .unconfirmed(attempt)
             }
 
-        case .ambiguous(let reason):
+        case .ambiguous:
             self.isStale = true
             do {
                 try await store.mutate { draft in
@@ -242,8 +242,12 @@ public actor PaymentEngine {
                 try await store.mutate { draft in
                     draft.updateAttemptState(id: attemptID, state: .notSent(reason: reason))
                 }
-            } catch {}
-            return .notSent(reason: reason)
+                return .notSent(reason: reason)
+            } catch {
+                var updated = attempt
+                updated.state = .unconfirmed
+                return .unconfirmed(updated)
+            }
 
         case .rejectedFinal(let code, let message):
             self.isStale = true
@@ -251,8 +255,12 @@ public actor PaymentEngine {
                 try await store.mutate { draft in
                     draft.updateAttemptState(id: attemptID, state: .failed(code: code, message: message))
                 }
-            } catch {}
-            return .failed(code: code, message: message)
+                return .failed(code: code, message: message)
+            } catch {
+                var updated = attempt
+                updated.state = .unconfirmed
+                return .unconfirmed(updated)
+            }
 
         case .busy:
             self.isStale = true
@@ -261,8 +269,12 @@ public actor PaymentEngine {
                 try await store.mutate { draft in
                     draft.updateAttemptState(id: attemptID, state: .notSent(reason: reason))
                 }
-            } catch {}
-            return .notSent(reason: reason)
+                return .notSent(reason: reason)
+            } catch {
+                var updated = attempt
+                updated.state = .unconfirmed
+                return .unconfirmed(updated)
+            }
         }
     }
 }
