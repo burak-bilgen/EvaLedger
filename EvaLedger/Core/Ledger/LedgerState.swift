@@ -126,7 +126,7 @@ nonisolated public struct LedgerState: Codable, Equatable, Sendable {
 
         for i in 0..<attempts.count {
             if attempts[i].state == .unconfirmed && !inFlightIDs.contains(attempts[i].id) {
-                attempts[i].state = .notSent(reason: "The bank has no record of this payment, so it was not sent. It is safe to try again.")
+                attempts[i].state = .notSent(reason: "The bank has no record of this payment. It is safe to try again.")
             }
         }
     }
