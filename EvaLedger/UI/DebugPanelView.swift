@@ -7,6 +7,8 @@ import SwiftUI
 
 #if DEBUG
 public protocol BankDebugControls: AnyObject, Sendable {
+    var isUnreachable: Bool { get }
+    var isHoldingIncoming: Bool { get }
     func resetData()
     func settlePending()
     func pay(from sender: String, toEva recipient: String, amountCents: Int, description: String)
@@ -116,6 +118,10 @@ public struct DebugPanelView: View {
             }
             .navigationTitle("Bank Remote Control")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                isUnreachable = bank.isUnreachable
+                holdIncoming = bank.isHoldingIncoming
+            }
         }
     }
 }
