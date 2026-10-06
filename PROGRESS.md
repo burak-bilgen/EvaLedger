@@ -36,3 +36,10 @@
 - Doubts: None; full scenario flow and write-ahead persistence verified.
 - Test result: Green (51 tests passed across 8 suites).
 
+## Prompt 7: Scenario 2 (Lost Answer)
+- What changed: Added Scenario2LostAnswerTests covering lost answer resulting in unconfirmed status without speculative arithmetic, subsequent feed reconciliation, unconfirmed retention under unreachable bank sync, and the in-flight reconciliation guard. Added armUnreachable and disarmUnreachable to FakeBank.
+- Assumptions: When payment network connection is lost, payment has occurred at bank; client remains unconfirmed displaying authoritative previous balance until reconciled by feed.
+- Doubts: None; verified that in-flight payments are protected from false notSent transitions during concurrent sync.
+- Test result: Green (54 tests passed across 9 suites).
+
+
