@@ -17,3 +17,9 @@
 - Assumptions: Normal feed pages deduplicate multiple changes for the same transaction within the window by ID unless .duplicateWithinPage is armed.
 - Doubts: None; all 11 contract rules and switches passed deterministically via URLSession.
 - Test result: Green (31 tests passed in 0.040s across 5 suites).
+
+## Prompt 4: BankClient (URLSession, Error Classification, Retry Policy)
+- What changed: Implemented BankClient protocol, URLSessionBankClient with pure mapOutcome function, Sleeper protocol, and BusyRetryPolicy with bounded exponential backoff. Created RecordingSleeper and BankClientTests with exhaustive outcome mapping and retry loop tests.
+- Assumptions: Handled undecodable 2xx responses and 5xx (except 503) as ambiguous. Bounded busy retry max attempts is 5, delay capped at 30 seconds.
+- Doubts: None; outcome mapping and retry loop verified via FakeBank and unit tests.
+- Test result: Green (43 tests passed in 0.044s across 6 suites).
