@@ -42,4 +42,11 @@
 - Doubts: None; verified that in-flight payments are protected from false notSent transitions during concurrent sync.
 - Test result: Green (54 tests passed across 9 suites).
 
+## Prompt 8: Scenario 3 (Repeated Entries)
+- What changed: Created Scenario3RepeatedEntriesTests covering duplicate entries within a feed page, re-sent unchanged entries, and status settlement updates. Added pure unit test verifying last-occurrence semantics and current-state preservation.
+- Assumptions: The bank always transmits current authoritative state in feed pages; duplicate IDs within one page resolve to the last occurrence.
+- Doubts: None; verified that rows and attempts never duplicate across multiple redundant syncs.
+- Test result: Green (56 tests passed across 10 suites).
+
+
 
