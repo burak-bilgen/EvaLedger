@@ -28,6 +28,19 @@ All 75 tests across 17 suites are implemented purely in **Swift Testing** (`impo
 
 ---
 
+## Try the Failures by Hand
+In `#if DEBUG` builds, tap the top-right ladybug icon to open the Bank Remote Control:
+- **Lost Answer**: Tap *Arm Lost Answer*, send a payment; row remains unconfirmed until resolved by feed sync.
+- **Unreachable & Retry**: Enable *Bank Unreachable*, send payment (row becomes `.notSent`); disable toggle, tap *Try again*.
+- **Busy (429/503)**: Tap *Arm Busy (429 then 503)*, send payment; retry policy handles exponential backoff automatically.
+- **Repeated Entries**: Under *Repeated Entries Mode*, pick *Duplicate within page*; feed sync deduplicates rows idempotently.
+- **Balance Ahead of Feed**: Enable *Hold incoming from feed*, tap *Noor pays Eva $17.08* (balance credits instantly), then tap *Release held feed transactions*.
+- **Late Rejection**: After completing a payment and tapping *Settle pending*, tap *Late reject last completed* to observe in-place refund.
+- **Process Kill**: Tap *Arm Lost Answer*, tap Send, swipe away in app switcher and relaunch; row recovers as "Not confirmed" and reconciles.
+- **Reset**: Tap *Reset bank and app data* to cleanly wipe both bank and client JSON state files.
+
+---
+
 ## Build Configuration & Xcode 16 Format
 - **Deployment Target**: `IPHONEOS_DEPLOYMENT_TARGET = 17.0` (supports iOS 17.0+ devices and simulators).
 - **Concurrency & Language Settings**: `SWIFT_VERSION = 5.0` with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPROACHABLE_CONCURRENCY = YES`, and upcoming concurrency flags enabled (`DisableOutwardActorInference`, `InferSendableFromCaptures`, `GlobalActorIsolatedTypesUsability`, `MemberImportVisibility`, `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`). Full Swift 6 mode is not enabled as non-Sendable `(inout LedgerState)` closures passed to `LedgerStore.mutate` trigger data race diagnostics under strict mode.
