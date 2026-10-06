@@ -48,6 +48,10 @@ struct Scenario6BalanceAheadOfFeedTests {
         #expect(intermediatePersisted?.bankBalanceCents == 101708)
         let cursorAtStep3 = intermediatePersisted?.cursor
 
+        // - Bank holds exactly 1 transaction involving Eva and 0 payment requests from Eva
+        #expect(bank.transactions(involving: "eva").count == 1)
+        #expect(bank.paymentRequestCount == 0)
+
         // Step 4: Bank releases held transactions, app syncs: Feed delivers Noor's payment
         bank.releaseHeldTransactions()
         let postReleaseSnapshot = await engine.sync()
@@ -63,6 +67,8 @@ struct Scenario6BalanceAheadOfFeedTests {
         // - balance still 101708 ("1,017.08")
         #expect(postReleaseSnapshot.balanceDisplay.formattedAmount == "1,017.08")
         #expect(!postReleaseSnapshot.isStale)
+        #expect(bank.transactions(involving: "eva").count == 1)
+        #expect(bank.paymentRequestCount == 0)
 
         // - cursor advanced past the release (proving sequence re-append worked and cursor logic didn't skip it)
         let finalPersisted = try harness.readPersistedState()
