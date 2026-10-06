@@ -53,12 +53,12 @@ In `#if DEBUG` builds, tap the top-right ladybug icon to open the Bank Remote Co
 2. **Pure Projection**: The UI renders a pure projection (`LedgerProjection`) of `LedgerState`; no parallel view-layer state exists.
 3. **Write-Ahead Persistence**: Tapping send writes the attempt as `.sending` to disk *before* dispatching any HTTP request.
 4. **Crash Recovery**: Orphaned `.sending` attempts are converted to `.unconfirmed` on app launch without network calls.
-5. **Feed Reconciliation**: Syncing is read-only; attempts are matched and resolved by `idempotency_key` delivered by the bank feed.
+5. **Feed Reconciliation**: Syncing never sends payments; it only reads the bank feed and reconciles local attempts by `idempotency_key`.
 6. **No Speculative Balance**: Balance is taken verbatim from the bank's `balance_cents`; the client never computes balance by summing rows.
 7. **Same-Key Retries**: Retrying a `.notSent` payment reuses the original attempt and idempotency key, eliminating duplicate payment risk.
 8. **Bounded Backoff**: HTTP 429 and 503 errors trigger bounded retries with `Retry-After` header support using injected `Sleeper`.
 9. **Single-Flight Sync**: Concurrent sync requests await the same in-flight task; background feed and send responses interleave safely.
-10. **Actor Isolation**: State mutations and persistence writes are serialized within the `PaymentEngine` and `LedgerStore` actors.
+10. **Actor Isolation**: App state mutations and persistence writes are serialized within the `PaymentEngine` and `LedgerStore` actors (while the standalone `FakeBank` synchronizes via internal locks).
 
 ---
 
