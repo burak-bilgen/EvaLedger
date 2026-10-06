@@ -1,2 +1,90 @@
 # EvaLedger
 
+EvaLedger is a banking synchronization iOS application designed to demonstrate correct, robust financial synchronization, crash recovery, and failure handling between a mobile client and a banking ledger under adversarial network conditions.
+
+Built with **Swift 6 language mode**, strict concurrency, SwiftUI + Observation, iOS 17+, and zero third-party dependencies.
+
+---
+
+## How to Run
+1. Open `EvaLedger.xcodeproj` in Xcode 16+.
+2. Select the **EvaLedger** scheme and an iOS 17+ Simulator (e.g., iPhone 17).
+3. Press **Cmd+R** to build and run.
+4. (Optional) In `#if DEBUG` builds, tap the top-right gear icon to open the **Debug Remote Control** and test bank behaviors (simulate lost connections, bank busy 429/503 errors, duplicate feed entries, late rejections, and incoming transfers).
+
+---
+
+## How to Test
+Run tests in Xcode with **Cmd+U**, or from the terminal:
+```bash
+xcodebuild test \
+  -project EvaLedger.xcodeproj \
+  -scheme EvaLedger \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -quiet
+```
+
+All 70 tests across 16 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no UI tests, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite completes deterministically in ~0.07 seconds.
+
+---
+
+## Architecture Overview (10 lines)
+1. **Single Source of Truth**: All app state is held in a single Codable JSON `LedgerState` persisted atomically with versioning.
+2. **Pure Projection**: The UI renders a pure projection (`LedgerProjection`) of `LedgerState`; no parallel view-layer state exists.
+3. **Write-Ahead Persistence**: Tapping send writes the attempt as `.sending` to disk *before* dispatching any HTTP request.
+4. **Crash Recovery**: Orphaned `.sending` attempts are converted to `.unconfirmed` on app launch without network calls.
+5. **Feed Reconciliation**: Syncing is read-only; attempts are matched and resolved by `idempotency_key` delivered by the bank feed.
+6. **No Speculative Balance**: Balance is taken verbatim from the bank's `balance_cents`; the client never computes balance by summing rows.
+7. **Same-Key Retries**: Retrying a `.notSent` payment reuses the original attempt and idempotency key, eliminating duplicate payment risk.
+8. **Bounded Backoff**: HTTP 429 and 503 errors trigger bounded retries with `Retry-After` header support using injected `Sleeper`.
+9. **Single-Flight Sync**: Concurrent sync requests await the same in-flight task; background feed and send responses interleave safely.
+10. **Actor Isolation**: State mutations and persistence writes are serialized within the `PaymentEngine` and `LedgerStore` actors.
+
+---
+
+## File Map
+```
+EvaLedger/
+├── Core/
+│   ├── Models/
+│   │   ├── Money.swift                   # Cent-based currency formatting and parsing
+│   │   ├── Transaction.swift             # Bank transaction models, DTOs, and status enum
+│   │   └── PaymentAttempt.swift          # Client-side payment attempt lifecycle and state
+│   ├── Ledger/
+│   │   ├── LedgerState.swift             # Persisted state container and pure mutations
+│   │   ├── LedgerStore.swift             # Actor owning in-memory state and atomic disk persistence
+│   │   └── LedgerProjection.swift        # Pure projection mapping LedgerState to UI display rows
+│   ├── Networking/
+│   │   ├── BankClient.swift              # HTTP URLSessionBankClient and outcome classification
+│   │   └── BusyRetryPolicy.swift         # Bounded retry loop with exponential backoff & Sleeper protocol
+│   ├── Persistence/
+│   │   ├── Persistence.swift             # Persistence protocol definition
+│   │   └── FileLedgerPersistence.swift   # Atomic schema-versioned JSON file persistence with backup recovery
+│   ├── Engine/
+│   │   ├── PaymentEngine.swift           # Actor orchestrating payment creation, retries, and feed sync
+│   │   ├── IDGenerator.swift             # IDGenerator protocol and SystemIDGenerator
+│   │   └── EngineClock.swift             # EngineClock protocol and SystemClock
+│   └── AppEnvironment.swift              # Composition root wiring dependencies
+├── Fake/
+│   └── FakeBank.swift                    # Single-file in-memory bank with dynamic URLProtocol routing
+├── UI/
+│   ├── LedgerView.swift                  # Single plain SwiftUI screen (Header, Rows, Send Form)
+│   ├── LedgerViewModel.swift             # Thin @Observable view model forwarding intents
+│   └── DebugPanelView.swift              # Debug control panel to toggle fake bank misbehaviors
+└── EvaLedgerApp.swift                     # SwiftUI App entry point
+
+EvaLedgerTests/
+├── Unit/                                 # Unit test suites (Money, Transactions, Projection, Persistence, etc.)
+├── FakeBankTests/                        # Contract tests verifying FakeBank against the bank specification
+├── Harness/                              # Deterministic test doubles (AppHarness, RecordingSleeper, FrozenPersistence)
+└── Scenarios/                            # Acceptance tests for Scenarios 1 through 7
+```
+
+---
+
+## Where the Fake Lives
+The fake bank lives in a single, self-contained file: `EvaLedger/Fake/FakeBank.swift`.
+- It maintains its own thread-safe in-memory balances and transaction change log, completely isolated from client storage.
+- It intercepts app HTTP requests using a custom `URLProtocol` registered on the app's `URLSession`.
+- The app talks to the bank solely through standard HTTP requests (`GET /v1/transactions`, `POST /v1/payments`).
+- The app production paths never reference `FakeBank` directly; only the composition root (`AppEnvironment`) and the `#if DEBUG` `DebugPanelView` interact with it for simulator testing and remote control.
