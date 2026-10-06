@@ -200,4 +200,22 @@ struct FakeBankPersistenceTests {
         #expect(snapshotB.balanceDisplay.formattedAmount == "975.00")
         #expect(!snapshotB.isStale)
     }
+
+    @Test("FakeBank records persistence error when storageURL is unwritable and in-memory bank continues working")
+    func fakeBankRecordsPersistenceErrorAndKeepsWorking() async throws {
+        let unwritableURL = URL(fileURLWithPath: "/dev/null/forbidden/bank.json")
+        let host = "\(UUID().uuidString).bank.test"
+        let bank = FakeBank(uniqueHost: host, storageURL: unwritableURL)
+
+        // Action triggering persistence
+        bank.pay(from: "mila", toEva: "eva", amountCents: 1000, description: "coffee")
+
+        // Assert error is recorded
+        #expect(bank.lastPersistenceError != nil)
+
+        // Assert in-memory bank continues working
+        #expect(bank.balance(of: "eva") == 100000)
+        bank.settlePending()
+        #expect(bank.balance(of: "eva") == 101000)
+    }
 }

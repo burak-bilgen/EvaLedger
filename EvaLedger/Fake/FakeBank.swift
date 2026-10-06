@@ -93,6 +93,14 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     private var gateReachedContinuation: CheckedContinuation<Void, Never>?
     private var gateReleaseContinuation: CheckedContinuation<Void, Never>?
 
+    // Persistence error tracking
+    private var _lastPersistenceError: (any Error)? = nil
+    public var lastPersistenceError: (any Error)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _lastPersistenceError
+    }
+
     private var hangNextPaymentArmed: Bool = false
     private var hangingContinuation: CheckedContinuation<Void, Never>?
     private var hangReachedContinuation: CheckedContinuation<Void, Never>?
@@ -133,8 +141,9 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             self.heldTxIDs = state.heldTxIDs
             self.deliveredTxIDs = Set(state.deliveredTxIDs)
             self.holdIncomingFromFeed = state.holdIncomingFromFeed
+            self._lastPersistenceError = nil
         } catch {
-            // Silently fall back to fresh state if corrupted
+            self._lastPersistenceError = error
         }
     }
 
@@ -161,8 +170,9 @@ nonisolated public final class FakeBank: @unchecked Sendable {
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             }
             try data.write(to: storageURL, options: .atomic)
+            _lastPersistenceError = nil
         } catch {
-            // Persistence error ignored or logged
+            _lastPersistenceError = error
         }
     }
 
@@ -479,7 +489,16 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         heldTxIDs.removeAll()
         creditedToRecipientTxIDs.removeAll()
         if let storageURL {
-            try? FileManager.default.removeItem(at: storageURL)
+            do {
+                try FileManager.default.removeItem(at: storageURL)
+                _lastPersistenceError = nil
+            } catch {
+                if (error as NSError).domain == NSCocoaErrorDomain && (error as NSError).code == NSFileNoSuchFileError {
+                    _lastPersistenceError = nil
+                } else {
+                    _lastPersistenceError = error
+                }
+            }
         }
     }
 

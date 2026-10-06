@@ -24,7 +24,7 @@ xcodebuild test \
   -quiet
 ```
 
-All 75 tests across 17 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite runs deterministically in about a second, with no wall-clock sleeps.
+All 76 tests across 17 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite runs deterministically in about a second, with no wall-clock sleeps.
 
 ---
 
@@ -110,7 +110,7 @@ EvaLedgerTests/
 ## Where the Fake Lives
 The fake bank lives in a single, self-contained file: `EvaLedger/Fake/FakeBank.swift`.
 - FakeBank is a single file (`Fake/FakeBank.swift`) that answers real HTTP requests through a custom `URLProtocol` registered on the app's own `URLSession`.
-- In the app, its state is persisted to its own JSON file (`evaledger_bank.json`), separate from the ledger file, so killing the app does not wipe the bank. In tests it runs in-memory by default (isolation, determinism), and persistence has its own dedicated test suite.
+- In the app, its state is persisted to its own JSON file (`evaledger_bank.json`), separate from the ledger file, so killing the app does not wipe the bank. In tests it runs in-memory by default (isolation, determinism), and persistence has its own dedicated test suite. Persistence in the fake is best-effort and errors are recorded in `lastPersistenceError`.
 - Both bank and app state can be reset simultaneously via the DEBUG "Reset bank and app data" button in the debug panel.
 - The app production UI and view models never reference `FakeBank` directly (the UI only talks to `PaymentEngine` and `LedgerState`). Only the composition root (`AppEnvironment`) constructs `FakeBank` and registers its `URLSession`. Under `#if DEBUG`, debug controls are exposed via the `BankDebugControls` protocol to `DebugPanelView` for simulator testing, while Release builds contain zero references to debug controls or fake bank in the UI layer.
 
