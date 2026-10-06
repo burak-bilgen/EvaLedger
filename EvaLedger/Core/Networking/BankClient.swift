@@ -33,11 +33,18 @@ nonisolated public final class URLSessionBankClient: BankClient {
     public let session: URLSession
     public let baseURL: URL
     public let requestTimeout: TimeInterval
+    public let sleeper: any Sleeper
 
-    public init(session: URLSession, baseURL: URL, requestTimeout: TimeInterval = 10.0) {
+    public init(
+        session: URLSession,
+        baseURL: URL,
+        requestTimeout: TimeInterval = 10.0,
+        sleeper: any Sleeper = RealSleeper()
+    ) {
         self.session = session
         self.baseURL = baseURL
         self.requestTimeout = requestTimeout
+        self.sleeper = sleeper
     }
 
     public func fetchFeed(cursor: Int?) async throws -> FeedResponse {
@@ -55,28 +62,48 @@ nonisolated public final class URLSessionBankClient: BankClient {
         request.timeoutInterval = requestTimeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        do {
-            let (data, response) = try await session.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw BankClientError.transport("Invalid response type")
+        for attemptIndex in 0..<BusyRetryPolicy.maxAttempts {
+            if Task.isCancelled {
+                throw BankClientError.transport("Task was cancelled")
             }
 
-            if httpResponse.statusCode == 200 {
-                do {
-                    return try JSONDecoder().decode(FeedResponse.self, from: data)
-                } catch {
-                    throw BankClientError.decoding(error.localizedDescription)
+            do {
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw BankClientError.transport("Invalid response type")
                 }
-            } else if httpResponse.statusCode == 503 || httpResponse.statusCode == 429 {
-                throw BankClientError.busyExhausted
-            } else {
-                throw BankClientError.transport("HTTP \(httpResponse.statusCode)")
+
+                if httpResponse.statusCode == 200 {
+                    do {
+                        return try JSONDecoder().decode(FeedResponse.self, from: data)
+                    } catch {
+                        throw BankClientError.decoding(error.localizedDescription)
+                    }
+                } else if httpResponse.statusCode == 503 || httpResponse.statusCode == 429 {
+                    if attemptIndex + 1 < BusyRetryPolicy.maxAttempts {
+                        let retryAfterSeconds: TimeInterval?
+                        if let header = httpResponse.value(forHTTPHeaderField: "Retry-After"), let sec = Double(header) {
+                            retryAfterSeconds = sec
+                        } else {
+                            retryAfterSeconds = nil
+                        }
+                        let waitTime = BusyRetryPolicy.delay(forAttemptIndex: attemptIndex, retryAfterHeader: retryAfterSeconds)
+                        try await sleeper.sleep(for: waitTime)
+                        continue
+                    } else {
+                        throw BankClientError.busyExhausted
+                    }
+                } else {
+                    throw BankClientError.transport("HTTP \(httpResponse.statusCode)")
+                }
+            } catch let clientError as BankClientError {
+                throw clientError
+            } catch {
+                throw BankClientError.transport(error.localizedDescription)
             }
-        } catch let clientError as BankClientError {
-            throw clientError
-        } catch {
-            throw BankClientError.transport(error.localizedDescription)
         }
+
+        throw BankClientError.busyExhausted
     }
 
     public func createPayment(_ paymentRequest: PaymentRequest) async -> PaymentOutcome {

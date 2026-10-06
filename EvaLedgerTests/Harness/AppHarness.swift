@@ -34,7 +34,7 @@ public final class AppHarness: @unchecked Sendable {
         self.clock = FixedClock()
 
         let session = theBank.makeSession()
-        let client = URLSessionBankClient(session: session, baseURL: theBank.baseURL)
+        let client = URLSessionBankClient(session: session, baseURL: theBank.baseURL, sleeper: self.sleeper)
         self.bankClient = client
 
         do {
@@ -72,7 +72,7 @@ public final class AppHarness: @unchecked Sendable {
         self.store = freshStore
 
         let session = bank.makeSession()
-        let client = URLSessionBankClient(session: session, baseURL: bank.baseURL)
+        let client = URLSessionBankClient(session: session, baseURL: bank.baseURL, sleeper: self.sleeper)
         self.bankClient = client
 
         let freshEngine = PaymentEngine(
