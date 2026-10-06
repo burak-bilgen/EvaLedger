@@ -62,7 +62,7 @@ Prompt 1 produced `PLAN.md` and established the architectural invariants before 
 - **What was produced:** When implementing `PaymentEngine.swift` in Prompt 6 (`d5c18d4`), the disk persistence calls (`try await store.mutate { draft in draft.updateAttemptState(...) }`) in the `.definitelyNotSent`, `.rejectedFinal`, and `.busy` branches of `applyPaymentOutcome` were wrapped in an empty `catch {}` block.
 - **Why it was wrong:** `LedgerStore.mutate` only updates in-memory state (`self.state = draft`) if `persistence.save(draft)` succeeds. If disk persistence failed (e.g. disk full, permission issue, or frozen persistence), the empty `catch {}` silently swallowed the error. As a result, both the disk file and in-memory `LedgerStore` remained in state `.sending`, while `applyPaymentOutcome` returned `.notSent` or `.failed` to the caller. For the user, the UI snapshot read `.sending` from `store`, keeping the Send button permanently disabled (`!isSending`) and displaying a perpetual "Sending…" spinner, freezing the payment form ("lies-to-user / UI freeze").
 - **Who noticed:** Found during the Prompt 14 hostile review run while auditing for swallowed errors (`catch {}`) and memory/disk state divergence.
-- **What was done:** First addressed in commit `e3c8667` by having `applyPaymentOutcome` return `.unconfirmed` when disk save fails. Later completed in commit `3a0a0d1` by adding `updateStateInMemoryOnly` on `LedgerStore` to update the in-memory attempt from `.sending` to `.unconfirmed` when disk save fails, preventing `store.snapshot()` from holding a stale `.sending` state.
+- **What was done:** The first fix in commit `e3c8667` was itself incomplete: it returned `.unconfirmed` to the caller, but the in-memory store still held `.sending` because `store.mutate` rolled back on disk failure, leaving the UI row stuck. This was caught while writing the `FrozenPersistence` test (`3fefccc`). It was fixed in `3a0a0d1` by adding `updateStateInMemoryOnly` on `LedgerStore` so the in-memory store explicitly transitions the attempt to `.unconfirmed` when disk save fails.
 
 ---
 
@@ -70,7 +70,7 @@ Prompt 1 produced `PLAN.md` and established the architectural invariants before 
 
 If given another two hours, the following additions would be prioritized:
 1. **Shared Contract Tests with Staging**: Run `FakeBankContractTests` against a real bank staging environment over HTTPS to ensure fake bank fidelity with real backend behavior.
-2. **XCUITest Coverage**: End-to-end UI tests covering the happy path, form validation, and simulated process termination / relaunch.
+2. **Automated End-to-End Integration Coverage**: Comprehensive integration suites driving the view model and engine across complex multi-step user flows.
 3. **Background Refresh**: Integration with `BGAppRefreshTask` and Apple Push Notification service (APNs) for real-time feed synchronization when the app is suspended.
 4. **Automated Schema Migration Tests**: Explicit unit test suites validating smooth schema migrations across multiple versions (e.g., v1 -> v2) with backward compatibility.
 5. **Structured Logging (`OSLog`)**: Replace silent catches with Apple's unified logging system, tagging subsystems and privacy-redacted categories (`OSLogPrivacy.public` vs `.private`) without logging sensitive PII.
