@@ -46,8 +46,9 @@ struct Scenario3RepeatedEntriesTests {
 
         // Attempt row is NOT duplicated next to transaction row
         #expect(sync2.state.attempts.isEmpty)
-        // Displayed balance equals bank balance_cents verbatim: 100000 - 2500 + 1000 = 98500 ("985.00")
-        #expect(sync2.balanceDisplay.formattedAmount == "985.00")
+        // Displayed balance equals bank balance_cents verbatim:
+        // Eva debited 2500 immediately -> 97500 ("975.00"). Mila's incoming payment is pending until settle.
+        #expect(sync2.balanceDisplay.formattedAmount == "975.00")
         #expect(bank.transactionCount(from: "eva") == 1)
         #expect(bank.paymentRequestCount == 1)
 
@@ -62,7 +63,7 @@ struct Scenario3RepeatedEntriesTests {
         #expect(alexRow3?.status == .pending)
         #expect(milaRow3?.status == .pending)
         #expect(sync3.state.attempts.isEmpty)
-        #expect(sync3.balanceDisplay.formattedAmount == "985.00")
+        #expect(sync3.balanceDisplay.formattedAmount == "975.00")
         #expect(bank.transactionCount(from: "eva") == 1)
         #expect(bank.paymentRequestCount == 1)
 

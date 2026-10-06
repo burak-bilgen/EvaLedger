@@ -83,5 +83,13 @@ struct Scenario6BalanceAheadOfFeedTests {
         #expect(idempotentSnapshot.rows.count == 1)
         #expect(idempotentSnapshot.balanceDisplay.formattedAmount == "1,017.08")
         #expect(!idempotentSnapshot.isStale)
+
+        // Step 5: Settle pending transactions: verify status becomes .completed and NO double credit occurs
+        bank.settlePending()
+        let settledSnapshot = await engine.sync()
+        #expect(settledSnapshot.rows.count == 1)
+        #expect(settledSnapshot.rows.first?.status == .completed)
+        #expect(settledSnapshot.balanceDisplay.formattedAmount == "1,017.08")
+        #expect(bank.balance(of: "eva") == 101708)
     }
 }

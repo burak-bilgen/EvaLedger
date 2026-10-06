@@ -81,6 +81,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     private var deliveredTxIDs: Set<String> = []
     private var holdIncomingFromFeed: Bool = false
     private var heldTxIDs: [String] = []
+    private var creditedToRecipientTxIDs: Set<String> = []
 
     // Test staging gates
     private var gateNextPaymentArmed: Bool = false
@@ -191,15 +192,10 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         )
         transactions[transactionID] = updated
 
-        if existing.fromUsername.lowercased() == "eva" {
-            // Eva is refunded
-            balances["eva", default: 100000] += existing.amountCents
+        if creditedToRecipientTxIDs.contains(existing.id) {
             balances[existing.toUsername, default: 100000] -= existing.amountCents
-        } else if existing.toUsername.lowercased() == "eva" {
-            // Money taken back from Eva
-            balances["eva", default: 100000] -= existing.amountCents
-            balances[existing.fromUsername, default: 100000] += existing.amountCents
         }
+        balances[existing.fromUsername, default: 100000] += existing.amountCents
 
         changeLog.append((seq: nextSeq, txId: transactionID))
         nextSeq += 1
@@ -224,18 +220,20 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             )
             transactions[id] = completed
 
-            // If Eva paid someone, credit recipient now upon settle
-            if tx.fromUsername.lowercased() == "eva" {
+            // If recipient has not been credited yet (e.g. normal outgoing/incoming payment), credit upon settle
+            if !creditedToRecipientTxIDs.contains(id) {
                 balances[tx.toUsername, default: 100000] += tx.amountCents
+                creditedToRecipientTxIDs.insert(id)
             }
-            // (If someone paid Eva, Eva was credited immediately upon creation)
 
             changeLog.append((seq: nextSeq, txId: id))
             nextSeq += 1
         }
     }
 
-    /// Someone else pays Eva. Credits Eva immediately; debits sender immediately.
+    /// Someone else pays Eva. In normal mode, debits sender immediately and credits recipient upon settle.
+    /// In balance-ahead mode (holdIncomingFromFeed == true), credits recipient immediately and records it
+    /// so subsequent settlement does not double credit.
     public func pay(from: String, toEva: String = "eva", amountCents: Int, description: String) {
         lock.lock()
         defer { lock.unlock() }
@@ -244,7 +242,10 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         let txId = String(format: "txn_%08x", txIdCounter)
 
         balances[from, default: 100000] -= amountCents
-        balances[toEva, default: 100000] += amountCents
+        if holdIncomingFromFeed {
+            balances[toEva, default: 100000] += amountCents
+            creditedToRecipientTxIDs.insert(txId)
+        }
 
         let tx = Transaction(
             id: txId,
