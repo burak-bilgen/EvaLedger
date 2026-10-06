@@ -123,6 +123,14 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         isUnreachable = unreachable
     }
 
+    public func armUnreachable() {
+        setUnreachable(true)
+    }
+
+    public func disarmUnreachable() {
+        setUnreachable(false)
+    }
+
     /// Answers the next requests in order with 503 or 429 + Retry-After. Bank state is untouched.
     public func armBusy(_ script: [BusyResponse]) {
         lock.lock()
