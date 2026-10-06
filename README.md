@@ -2,13 +2,13 @@
 
 EvaLedger is a banking synchronization iOS application designed to demonstrate correct, robust financial synchronization, crash recovery, and failure handling between a mobile client and a banking ledger under adversarial network conditions.
 
-Built with Swift (`SWIFT_VERSION = 5.0` with Xcode 16 approachable concurrency & strict upcoming features enabled), SwiftUI + Observation, iOS 17.0+, and zero third-party dependencies.
+Built with Swift 5 (`SWIFT_VERSION = 5.0` with Xcode 16 approachable concurrency and default MainActor isolation), SwiftUI + Observation, iOS 17.0+, and zero third-party dependencies.
 
 ---
 
 ## How to Run
 1. Open `EvaLedger.xcodeproj` in Xcode 16+.
-2. Select the **EvaLedger** scheme and an iOS 17+ Simulator (e.g., iPhone 17).
+2. Select the **EvaLedger** scheme and an iOS 17.0+ Simulator (e.g., iPhone 17 or any installed iPhone simulator).
 3. Press **Cmd+R** to build and run.
 4. (Optional) In `#if DEBUG` builds, tap the top-right ladybug icon to open the **Debug Remote Control** and test bank behaviors (simulate lost connections, bank busy 429/503 errors, duplicate feed entries, late rejections, incoming transfers, and reset data).
 
@@ -30,8 +30,8 @@ All 75 tests across 17 suites are implemented purely in **Swift Testing** (`impo
 
 ## Build Configuration & Xcode 16 Format
 - **Deployment Target**: `IPHONEOS_DEPLOYMENT_TARGET = 17.0` (supports iOS 17.0+ devices and simulators).
-- **Concurrency & Language Settings**: `SWIFT_VERSION = 5.0` with `SWIFT_APPROACHABLE_CONCURRENCY = YES` and upcoming concurrency flags enabled (`DisableOutwardActorInference`, `InferSendableFromCaptures`, `GlobalActorIsolatedTypesUsability`, `MemberImportVisibility`, `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`). Full Swift 6 mode is not enabled as non-Sendable `(inout LedgerState)` closures passed to `LedgerStore.mutate` trigger data race diagnostics under strict mode.
-- **Project Structure**: Uses Xcode 16's modern JSON-based `project.xcproj` format with file-system synchronized folder groups. Clean clones in `/tmp` run with zero configuration and no machine-specific paths.
+- **Concurrency & Language Settings**: `SWIFT_VERSION = 5.0` with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPROACHABLE_CONCURRENCY = YES`, and upcoming concurrency flags enabled (`DisableOutwardActorInference`, `InferSendableFromCaptures`, `GlobalActorIsolatedTypesUsability`, `MemberImportVisibility`, `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`). Full Swift 6 mode is not enabled as non-Sendable `(inout LedgerState)` closures passed to `LedgerStore.mutate` trigger data race diagnostics under strict mode.
+- **Project Structure**: Uses Xcode 16's modern JSON-based `project.xcproj` format with file-system synchronized folder groups. Clean clones run with zero configuration and no machine-specific paths.
 
 ---
 
