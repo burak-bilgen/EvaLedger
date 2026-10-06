@@ -82,3 +82,10 @@
 - Assumptions: Test doubles belong in test targets so production code contains zero @unchecked Sendable outside the isolated FakeBank.
 - Doubts: None; all 9 areas audited and verified with green tests and zero compiler warnings.
 - Test result: Green (70 tests passed in 0.073s across 16 suites).
+
+## Prompt 15: Hardening (Flakes, Cmd+U, Clean Clone)
+- What changed: Verified 10 consecutive full test runs with 0 flakes (70/70 passing across all 16 suites); confirmed zero external service dependencies; executed clean clone test in temp directory verifying build and test pass with zero setup; confirmed FakeBank is self-contained and only referenced by AppEnvironment/DebugPanelView; verified zero Swift 6 strict concurrency warnings; verified git history hygiene and .gitignore.
+- Assumptions: Test suite is completely isolated and deterministic with injected Sleeper, in-memory URLProtocol, and file-based persistence.
+- Doubts: None; repository is clean, hardened, and verified.
+- Test result: Green (10/10 runs passed, 70/70 tests each run in ~0.065s).
+
