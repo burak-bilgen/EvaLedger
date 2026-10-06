@@ -11,3 +11,9 @@
 - Assumptions: Handled unknown bank transaction statuses without crashing (projected as unconfirmed). Money formatting handles Int.min safely with 64-bit integer arithmetic.
 - Doubts: None; pure functions and models are verified by comprehensive unit tests.
 - Test result: Green (20 tests passed in 0.017s via Swift Testing).
+
+## Prompt 3: FakeBank (Single file, URLProtocol fake & contract tests)
+- What changed: Created Fake/FakeBank.swift with NSLock-protected in-memory bank, dynamic URLProtocol routing, 6 misbehavior switches, and inspection APIs. Created FakeBankContractTests.swift testing all bank behaviors and switches.
+- Assumptions: Normal feed pages deduplicate multiple changes for the same transaction within the window by ID unless .duplicateWithinPage is armed.
+- Doubts: None; all 11 contract rules and switches passed deterministically via URLSession.
+- Test result: Green (31 tests passed in 0.040s across 5 suites).
