@@ -48,5 +48,12 @@
 - Doubts: None; verified that rows and attempts never duplicate across multiple redundant syncs.
 - Test result: Green (56 tests passed across 10 suites).
 
+## Prompt 9: Scenario 4 (Killed Mid-Flight)
+- What changed: Added Scenario4KilledMidFlightTests with Tests A, B, and C verifying app kill before network, during lost answer, and immediately after 201 response. Enhanced FakeBank with test-staging hooks (waitUntilHangReached, resumeHanging, onPaymentCreatedHook).
+- Assumptions: After launch recovery, an unconfirmed attempt with no feed match resolves to notSent; residual in-transit risk is neutralized because user retry reuses the identical persisted idempotency key.
+- Doubts: None; crash resilience and restart purely from on-disk state verified across all failure boundaries.
+- Test result: Green (59 tests passed across 11 suites).
+
+
 
 
