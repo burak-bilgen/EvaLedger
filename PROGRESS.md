@@ -66,6 +66,13 @@
 - Doubts: None; verified sequence re-append delivery and feed catch-up.
 - Test result: Green (62 tests passed across 13 suites).
 
+## Prompt 12: Scenario 7 (Unreachable, Then Busy)
+- What changed: Added Scenario7UnreachableThenBusyTests covering definitely-not-sent transitions when offline, verification that plain sync never auto-sends failed payments, same-key user retries across busy 429/503 responses with injected Sleeper backoff, dismiss-and-restart flow, and retry budget exhaustion.
+- Assumptions: User retry reuses the identical attempt and idempotency key; auto-sending is strictly prohibited and only user action triggers POST.
+- Doubts: None; must-have 7 verified.
+- Test result: Green (65 tests passed across 14 suites).
+
+
 
 
 
