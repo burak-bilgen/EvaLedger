@@ -615,6 +615,25 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             headers["Retry-After"] = String(retryAfterSeconds)
         }
 
+        let method = request.httpMethod?.uppercased() ?? "GET"
+        let path = request.url?.path ?? ""
+
+        var key: String? = nil
+        if method == "POST" && path == "/v1/payments" {
+            let cachedBody = URLProtocol.property(forKey: FakeBankURLProtocol.bodyKey, in: request) as? Data
+            if let data = request.httpBody ?? cachedBody ?? readHttpBodyStream(request: request),
+               let decoded = try? JSONDecoder().decode(PaymentRequest.self, from: data) {
+                key = decoded.idempotencyKey
+            }
+        }
+
+        lock.lock()
+        if method == "POST" && path == "/v1/payments" {
+            _paymentRequestCount += 1
+        }
+        _requestLog.append(BankRequestLogEntry(method: method, path: path, idempotencyKey: key, statusCode: statusCode))
+        lock.unlock()
+
         let body = ["error": ["code": "bank_busy", "message": "The bank is currently busy"]]
         let data = try! JSONSerialization.data(withJSONObject: body)
 
