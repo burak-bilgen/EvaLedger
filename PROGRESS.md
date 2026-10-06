@@ -60,6 +60,13 @@
 - Doubts: None; verified in-place transaction replacement and balance projection immunity to arbitrary row changes.
 - Test result: Green (61 tests passed across 12 suites).
 
+## Prompt 11: Scenario 6 (Balance Ahead of Feed)
+- What changed: Added Scenario6BalanceAheadOfFeedTests verifying that when a bank balance reflects incoming funds ahead of feed delivery, the balance is displayed verbatim without local deduction/adjustment, and subsequent feed releases advance the cursor and resolve rows idempotently.
+- Assumptions: The bank balance is authoritative at all times even when feed changes are held; client never calculates row sum deltas or flags false errors.
+- Doubts: None; verified sequence re-append delivery and feed catch-up.
+- Test result: Green (62 tests passed across 13 suites).
+
+
 
 
 
