@@ -108,3 +108,12 @@ The fake bank lives in a single, self-contained file: `EvaLedger/Fake/FakeBank.s
 - In the app, its state is persisted to its own JSON file (`evaledger_bank.json`), separate from the ledger file, so killing the app does not wipe the bank. In tests it runs in-memory by default (isolation, determinism), and persistence has its own dedicated test suite.
 - Both bank and app state can be reset simultaneously via the DEBUG "Reset bank and app data" button in the debug panel.
 - The app production UI and view models never reference `FakeBank` directly (the UI only talks to `PaymentEngine` and `LedgerState`). Only the composition root (`AppEnvironment`) constructs `FakeBank` and registers its `URLSession`. Under `#if DEBUG`, debug controls are exposed via the `BankDebugControls` protocol to `DebugPanelView` for simulator testing, while Release builds contain zero references to debug controls or fake bank in the UI layer.
+
+---
+
+## More Documentation
+- **[NOTES.md](NOTES.md)**: Architectural decisions, failure handling table, most effective prompt, concrete AI correction, future roadmap, and 50,000 transaction scaling analysis.
+- **[docs/AGENTS.md](docs/AGENTS.md)**: Master working agreement, bank API contract, and non-negotiable correctness invariants.
+- **[docs/PLAN.md](docs/PLAN.md)**: Up-front architecture and implementation plan generated before writing production code.
+- **[docs/PROMPTS.md](docs/PROMPTS.md)**: Complete ordered prompt log covering Prompts 1 through 16.
+- **[docs/PROGRESS.md](docs/PROGRESS.md)**: Step-by-step progress log with technical reflections and test results per prompt.
