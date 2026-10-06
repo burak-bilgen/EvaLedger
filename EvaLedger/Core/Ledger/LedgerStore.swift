@@ -52,6 +52,14 @@ public actor LedgerStore {
         }
     }
 
+    /// Updates in-memory state without persisting to disk.
+    /// Used when persistence fails during post-payment outcome processing to ensure
+    /// the in-memory attempt state transitions from .sending to .unconfirmed.
+    public func updateStateInMemoryOnly(_ transform: (inout LedgerState) -> Void) {
+        transform(&state)
+        notifyContinuations()
+    }
+
     public func snapshots() -> AsyncStream<LedgerState> {
         let id = UUID()
         let initial = state

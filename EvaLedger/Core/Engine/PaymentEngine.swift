@@ -222,7 +222,12 @@ public actor PaymentEngine {
                 }
                 return .accepted(transaction)
             } catch {
-                return .unconfirmed(attempt)
+                await store.updateStateInMemoryOnly { draft in
+                    draft.updateAttemptState(id: attemptID, state: .unconfirmed)
+                }
+                var updated = attempt
+                updated.state = .unconfirmed
+                return .unconfirmed(updated)
             }
 
         case .ambiguous:
@@ -231,7 +236,11 @@ public actor PaymentEngine {
                 try await store.mutate { draft in
                     draft.updateAttemptState(id: attemptID, state: .unconfirmed)
                 }
-            } catch {}
+            } catch {
+                await store.updateStateInMemoryOnly { draft in
+                    draft.updateAttemptState(id: attemptID, state: .unconfirmed)
+                }
+            }
             var updated = attempt
             updated.state = .unconfirmed
             return .unconfirmed(updated)
@@ -244,6 +253,9 @@ public actor PaymentEngine {
                 }
                 return .notSent(reason: reason)
             } catch {
+                await store.updateStateInMemoryOnly { draft in
+                    draft.updateAttemptState(id: attemptID, state: .unconfirmed)
+                }
                 var updated = attempt
                 updated.state = .unconfirmed
                 return .unconfirmed(updated)
@@ -257,6 +269,9 @@ public actor PaymentEngine {
                 }
                 return .failed(code: code, message: message)
             } catch {
+                await store.updateStateInMemoryOnly { draft in
+                    draft.updateAttemptState(id: attemptID, state: .unconfirmed)
+                }
                 var updated = attempt
                 updated.state = .unconfirmed
                 return .unconfirmed(updated)
@@ -271,6 +286,9 @@ public actor PaymentEngine {
                 }
                 return .notSent(reason: reason)
             } catch {
+                await store.updateStateInMemoryOnly { draft in
+                    draft.updateAttemptState(id: attemptID, state: .unconfirmed)
+                }
                 var updated = attempt
                 updated.state = .unconfirmed
                 return .unconfirmed(updated)
