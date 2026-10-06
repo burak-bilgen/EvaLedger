@@ -75,7 +75,7 @@ struct Scenario4KilledMidFlightTests {
             Issue.record("Expected row status .notSent, got: \(String(describing: syncSnapshot.rows.first?.status))")
             return
         }
-        #expect(reason == "The bank has no record of this payment, so it was not sent. It is safe to try again.")
+        #expect(reason == "The bank has no record of this payment. It is safe to try again.")
         // Displayed balance is 100,000 cents (bank's)
         #expect(syncSnapshot.balanceDisplay.formattedAmount == "1,000.00")
         // The app did NOT auto-send: paymentRequestCount == 0

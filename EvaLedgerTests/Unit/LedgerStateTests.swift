@@ -174,6 +174,6 @@ struct LedgerStateTests {
         )
         state.recordAttempt(attempt)
         state.reconcileUnconfirmed(inFlightIDs: [])
-        #expect(state.attempts.first?.state == .notSent(reason: "The bank has no record of this payment, so it was not sent. It is safe to try again."))
+        #expect(state.attempts.first?.state == .notSent(reason: "The bank has no record of this payment. It is safe to try again."))
     }
 }
