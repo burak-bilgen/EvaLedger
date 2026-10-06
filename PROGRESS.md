@@ -72,6 +72,13 @@
 - Doubts: None; must-have 7 verified.
 - Test result: Green (65 tests passed across 14 suites).
 
+## Prompt 13: Single Screen UI + Composition Root
+- What changed: Created AppEnvironment composition root, thin @Observable LedgerViewModel, LedgerView with authoritative header, status badges, lock-on-send form, and DebugPanelView for interactive bank controls. Added 3 ViewModel unit tests and verified live simulator launch.
+- Assumptions: Send form is disabled during in-flight sends to prevent double-tap submissions; ViewModel triggers sync following send completion while engine remains timerless.
+- Doubts: None; tested in simulator and verified all UI requirements.
+- Test result: Green (68 tests passed across 15 suites).
+
+
 
 
 
