@@ -89,6 +89,8 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
     private var hangNextPaymentArmed: Bool = false
     private var hangingContinuation: CheckedContinuation<Void, Never>?
+    private var hangReachedContinuation: CheckedContinuation<Void, Never>?
+    private var onPaymentCreatedHook: (@Sendable () -> Void)?
 
     public init(uniqueHost: String = UUID().uuidString + ".bank.test") {
         self.host = uniqueHost
@@ -97,6 +99,8 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     }
 
     deinit {
+        cancelHanging()
+        releaseGate()
         FakeBank.unregister(host: host)
     }
 
@@ -300,6 +304,32 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         hangNextPaymentArmed = true
     }
 
+    /// Asynchronously waits until the hanging request is intercepted and held.
+    public func waitUntilHangReached() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if hangingContinuation != nil {
+                lock.unlock()
+                continuation.resume()
+                return
+            }
+            hangReachedContinuation = continuation
+            lock.unlock()
+        }
+    }
+
+    /// Resumes any hanging continuation to allow clean task teardown.
+    public func resumeHanging() {
+        cancelHanging()
+    }
+
+    /// Injects a hook called immediately after the bank creates a payment in memory (for crash staging).
+    public func setOnPaymentCreatedHook(_ hook: (@Sendable () -> Void)?) {
+        lock.lock()
+        defer { lock.unlock() }
+        onPaymentCreatedHook = hook
+    }
+
     // MARK: - Inspection API
 
     public func balance(of username: String) -> Int {
@@ -371,8 +401,11 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
     private func registerHangingContinuation(_ cont: CheckedContinuation<Void, Never>) {
         lock.lock()
-        defer { lock.unlock() }
         hangingContinuation = cont
+        let reached = hangReachedContinuation
+        hangReachedContinuation = nil
+        lock.unlock()
+        reached?.resume()
     }
 
     private func registerGateReleaseContinuation(_ cont: CheckedContinuation<Void, Never>) {
@@ -601,7 +634,10 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         let isLost = lostAnswerArmed
         if isLost { lostAnswerArmed = false }
         _requestLog.append(BankRequestLogEntry(method: "POST", path: "/v1/payments", idempotencyKey: key, statusCode: 201))
+        let hook = onPaymentCreatedHook
         lock.unlock()
+
+        hook?()
 
         if isLost {
             client.urlProtocol(protocolInstance, didFailWithError: URLError(.networkConnectionLost))
