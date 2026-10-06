@@ -41,10 +41,15 @@ In `#if DEBUG` builds, tap the top-right ladybug icon to open the Bank Remote Co
 
 ---
 
-## Build Configuration & Xcode 16 Format
+## Build Configuration
 - **Deployment Target**: `IPHONEOS_DEPLOYMENT_TARGET = 17.0` (supports iOS 17.0+ devices and simulators).
-- **Concurrency & Language Settings**: `SWIFT_VERSION = 5.0` with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `SWIFT_APPROACHABLE_CONCURRENCY = YES`, and upcoming concurrency flags enabled (`DisableOutwardActorInference`, `InferSendableFromCaptures`, `GlobalActorIsolatedTypesUsability`, `MemberImportVisibility`, `InferIsolatedConformances`, `NonisolatedNonsendingByDefault`). Full Swift 6 mode is not enabled as non-Sendable `(inout LedgerState)` closures passed to `LedgerStore.mutate` trigger data race diagnostics under strict mode.
-- **Project Structure**: Uses Xcode 16's modern JSON-based `project.xcproj` format with file-system synchronized folder groups. Clean clones run with zero configuration and no machine-specific paths.
+- **Concurrency & Language Settings**:
+  - `SWIFT_VERSION = 5.0`
+  - `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`
+  - `SWIFT_APPROACHABLE_CONCURRENCY = YES`
+  - `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES`
+  - Switching to Swift 6 mode triggers strict concurrency diagnostics: closures passed across actor boundaries trigger `sending value of non-Sendable type '(inout LedgerState) -> ()' risks causing data races [#RegionIsolation::SendingRisksDataRace]`, and global shared mutable state in `FakeBank` triggers `static property 'registry' is not concurrency-safe [#MutableGlobalVariable]`.
+- **Project Structure**: The project file on disk is `EvaLedger.xcodeproj/project.xcproj`, a text/JSON-like format with file-system synchronized folder groups. Clean clones run with zero configuration and no machine-specific paths.
 
 ---
 
