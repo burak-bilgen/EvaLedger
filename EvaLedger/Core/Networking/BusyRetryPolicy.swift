@@ -22,6 +22,16 @@ nonisolated public struct BusyRetryPolicy: Sendable {
     public static let maxAttempts = 5
     public static let maxRetryAfterCap: TimeInterval = 30.0
 
+    public let sleeper: any Sleeper
+
+    public init(sleeper: any Sleeper = RealSleeper()) {
+        self.sleeper = sleeper
+    }
+
+    public func execute(action: () async -> PaymentOutcome) async -> PaymentOutcome {
+        await Self.execute(sleeper: sleeper, action: action)
+    }
+
     /// Returns deterministic delay for the given attempt index (0-based) and optional Retry-After header.
     /// Backoff: 0.5s, 1.0s, 2.0s, 4.0s (capped at 30s).
     public static func delay(forAttemptIndex attemptIndex: Int, retryAfterHeader: TimeInterval?) -> TimeInterval {

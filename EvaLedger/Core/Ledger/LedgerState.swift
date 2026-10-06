@@ -116,4 +116,28 @@ nonisolated public struct LedgerState: Codable, Equatable, Sendable {
     public mutating func removeAttempt(id: UUID) {
         attempts.removeAll { $0.id == id }
     }
+
+    /// Reconciles unconfirmed attempts after a successful feed sync.
+    /// 1. Drops any attempt matching an already-known transaction key.
+    /// 2. Converts any remaining .unconfirmed attempts not currently in flight to .notSent.
+    public mutating func reconcileUnconfirmed(inFlightIDs: Set<UUID>) {
+        let knownKeys = Set(transactions.values.compactMap { $0.idempotencyKey })
+        attempts.removeAll { knownKeys.contains($0.idempotencyKey) }
+
+        for i in 0..<attempts.count {
+            if attempts[i].state == .unconfirmed && !inFlightIDs.contains(attempts[i].id) {
+                attempts[i].state = .notSent(reason: "Not confirmed by bank")
+            }
+        }
+    }
+
+    /// Converts persisted .sending attempts not in flight to .unconfirmed upon process relaunch.
+    public mutating func recoverOrphanedSendingAttempts(inFlightIDs: Set<UUID>) {
+        for i in 0..<attempts.count {
+            if attempts[i].state == .sending && !inFlightIDs.contains(attempts[i].id) {
+                attempts[i].state = .unconfirmed
+            }
+        }
+    }
 }
+
