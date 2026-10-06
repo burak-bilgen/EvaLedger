@@ -57,6 +57,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     // MARK: - Properties & State
     public let host: String
     public let baseURL: URL
+    public let storageURL: URL?
 
     private let lock = NSLock()
     private var balances: [String: Int] = [
@@ -93,8 +94,9 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     private var hangReachedContinuation: CheckedContinuation<Void, Never>?
     private var onPaymentCreatedHook: (@Sendable () -> Void)?
 
-    public init(uniqueHost: String = UUID().uuidString + ".bank.test") {
+    public init(uniqueHost: String = UUID().uuidString + ".bank.test", storageURL: URL? = nil) {
         self.host = uniqueHost
+        self.storageURL = storageURL
         self.baseURL = URL(string: "https://\(uniqueHost)") ?? URL(fileURLWithPath: "/")
         FakeBank.register(self, host: uniqueHost)
     }
