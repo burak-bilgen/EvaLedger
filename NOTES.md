@@ -28,13 +28,34 @@
 
 ## 2. The prompt that got you furthest
 
-<!-- TODO(human): Describe the prompt that got you furthest -->
+Prompt 1 (harfiyen, PROMPTS.md'den):
+
+```markdown
+## Prompt 1: Plan (no code, approval gate)
+
+Read AGENTS.md fully. Do NOT write production code yet.
+
+Produce a plan containing:
+1. The proposed file/folder layout (inside the existing Xcode project's synchronized folders): App/, Core/Models, Core/Networking, Core/Persistence, Core/Ledger, Core/Payments, Fake/FakeBank.swift (single file), UI/, and the Tests folder layout.
+2. The exact public API (signatures only) of: Money, Transaction, PaymentAttempt, LedgerState, BankClient, Persistence, Sleeper, LedgerStore (actor), PaymentEngine (send / retry / dismiss / sync / recoverOnLaunch), the projection (TransactionRow, RowStatus, BalanceDisplay), and FakeBank's switch/inspection API.
+3. A state-transition table for PaymentAttempt covering: tap, 201, 200 replayed, 404/422, 429/503 retry loop, notConnectedToInternet, networkConnectionLost, process kill at each point (before persist, after persist before request, after bank created but before response handled), relaunch, successful sync with/without key match, user retry, dismiss.
+4. For each of the 7 scenarios (scenario 4 has two tests): the exact assertions you propose (rows, row states, displayed balance, isStale, bank-side transaction count, count of POST requests that reached the bank). Flag every place where you had to make an assumption about the spec.
+5. A list of risks and how the design addresses them.
+
+Then stop and wait for my approval.
+```
+
+**Neden bu prompt seçildi?**
+PLAN.md'yi üreten Prompt 1 seçildi çünkü tek bir satır kod yazılmadan önce projenin tüm tip imzalarını, hata sınırlarını ve test assertion'larını baştan kilitledi. Prompt'un talep ettiği exhaustive `PaymentAttempt` durum geçiş tablosu; write-ahead persistans kuralını, relaunch anında yetim kalan `.sending` girişimlerinin ağa çıkmadan `.unconfirmed` yapılmasını ve feed reconciliation'ın salt-okunur (read-only) GET üzerinden idempotency key ile çözülmesini en başta güvenceye aldı. 7 senaryonun tüm banka/istemci assertion'ları bu planda sabitlendiği için, sonraki tüm prompt'lar sıfır mimari kırılma ve sıfır yeniden yazımla doğrudan test-first olarak tamamlanabildi.
 
 ---
 
 ## 3. Where the AI was wrong
 
-<!-- TODO(human): Describe where the AI was wrong -->
+- **Ne üretildi:** Prompt 6 sırasında `PaymentEngine.swift` implemente edilirken (`d5c18d4`), `applyPaymentOutcome` metodunda `.definitelyNotSent`, `.rejectedFinal` ve `.busy` dallarındaki disk persistansı (`try await store.mutate { draft in draft.updateAttemptState(...) }`) boş bir `catch {}` bloğu içine alındı.
+- **Neden yanlıştı (hangi senaryoda / kullanıcı ne görürdü):** `LedgerStore.mutate` metodu, disk yazımı (`persistence.save`) başarılı olmadan `self.state = draft` güncellemesini yapmaz. Eğer disk doluluğu, I/O hatası veya donmuş persistans nedeniyle disk yazımı başarısız olursa, boş `catch {}` hatayı sessizce yutuyordu. Sonuç olarak diskte ve bellekteki `LedgerStore`'da girişim hala `.sending` durumunda kalırken, fonksiyon çağıran view model'a `.notSent` veya `.failed` dönüyordu. Kullanıcı açısından: ekrandaki `currentSnapshot()` verisi bellekteki `.sending` durumunu okuduğu için ödeme satırında sonsuz "Sending…" spinner'ı takılı kalıyor, `isSending` true kaldığı için "Send" butonu kalıcı olarak kilitleniyor ve kullanıcı yeni ödeme yapamıyordu ("lies-to-user / UI freeze").
+- **Kim fark etti:** Prompt 14 ("Hostile code review") sırasında checklist'in 8. maddesi ("silent try? swallowing errors that matter") ve disk-bellek desenkronizasyon riskleri denetlenirken AI (agent) tarafından tespit edildi.
+- **Ne yaptık:** Commit `e3c8667` (`Fix: Prevent desynchronized state when attempt persistence fails`) ile düzeltildi. Disk yazımı başarısız olursa, diskte hala `.sending` kaldığı (ve bir sonraki uygulama açılışında `recoverOnLaunch()` bunu `.unconfirmed` yapacağı) bilindiğinden, sahte bir terminal durum dönmek yerine durum dürüstçe `.unconfirmed` olarak dönüştürüldü ve kullanıcıya dürüst durum ("Not confirmed") yansıtıldı.
 
 ---
 
