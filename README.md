@@ -10,7 +10,7 @@ Built with **Swift 6 language mode**, strict concurrency, SwiftUI + Observation,
 1. Open `EvaLedger.xcodeproj` in Xcode 16+.
 2. Select the **EvaLedger** scheme and an iOS 17+ Simulator (e.g., iPhone 17).
 3. Press **Cmd+R** to build and run.
-4. (Optional) In `#if DEBUG` builds, tap the top-right gear icon to open the **Debug Remote Control** and test bank behaviors (simulate lost connections, bank busy 429/503 errors, duplicate feed entries, late rejections, and incoming transfers).
+4. (Optional) In `#if DEBUG` builds, tap the top-right ladybug icon to open the **Debug Remote Control** and test bank behaviors (simulate lost connections, bank busy 429/503 errors, duplicate feed entries, late rejections, and incoming transfers).
 
 ---
 
@@ -24,7 +24,7 @@ xcodebuild test \
   -quiet
 ```
 
-All 70 tests across 16 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no UI tests, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite completes deterministically in ~0.07 seconds.
+All 72 tests across 16 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no UI tests, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite completes deterministically in ~0.07 seconds.
 
 ---
 
@@ -84,7 +84,7 @@ EvaLedgerTests/
 
 ## Where the Fake Lives
 The fake bank lives in a single, self-contained file: `EvaLedger/Fake/FakeBank.swift`.
-- It maintains its own thread-safe in-memory balances and transaction change log, completely isolated from client storage.
+- It maintains its own thread-safe in-memory balances and transaction change log, completely isolated from client storage. Per the specification, keeping it in-memory guarantees strict test isolation and fast parallel test execution.
 - It intercepts app HTTP requests using a custom `URLProtocol` registered on the app's `URLSession`.
 - The app talks to the bank solely through standard HTTP requests (`GET /v1/transactions`, `POST /v1/payments`).
 - The app production paths never reference `FakeBank` directly; only the composition root (`AppEnvironment`) and the `#if DEBUG` `DebugPanelView` interact with it for simulator testing and remote control.
