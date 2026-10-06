@@ -1,5 +1,10 @@
 # EvaLedger Architecture & Implementation Notes
 
+Time spent: about 3 hours.
+The work was completed using an AI pair programmer, as permitted by the assignment guidelines.
+
+---
+
 ## 1. What can go wrong, and what the user sees
 
 | What happens | What the app does | What is on screen while it happens | Proving test |
@@ -28,7 +33,7 @@
 
 ## 2. The prompt that got you furthest
 
-Prompt 1 (harfiyen, PROMPTS.md'den):
+Prompt 1 (verbatim from `PROMPTS.md`):
 
 ```markdown
 ## Prompt 1: Plan (no code, approval gate)
@@ -45,17 +50,17 @@ Produce a plan containing:
 Then stop and wait for my approval.
 ```
 
-**Neden bu prompt seçildi?**
-PLAN.md'yi üreten Prompt 1 seçildi çünkü tek bir satır kod yazılmadan önce projenin tüm tip imzalarını, hata sınırlarını ve test assertion'larını baştan kilitledi. Prompt'un talep ettiği exhaustive `PaymentAttempt` durum geçiş tablosu; write-ahead persistans kuralını, relaunch anında yetim kalan `.sending` girişimlerinin ağa çıkmadan `.unconfirmed` yapılmasını ve feed reconciliation'ın salt-okunur (read-only) GET üzerinden idempotency key ile çözülmesini en başta güvenceye aldı. 7 senaryonun tüm banka/istemci assertion'ları bu planda sabitlendiği için, sonraki tüm prompt'lar sıfır mimari kırılma ve sıfır yeniden yazımla doğrudan test-first olarak tamamlanabildi.
+**Why this prompt was selected:**
+Prompt 1 produced `PLAN.md` and established the architectural invariants before any production code was written. It forced an exhaustive `PaymentAttempt` state-transition matrix up front—ensuring write-ahead persistence, launch recovery of orphaned `.sending` attempts to `.unconfirmed` without network I/O, and read-only feed reconciliation matching by idempotency key. It also locked in the public API signatures and exact scenario assertions across all 7 scenarios. While later prompts still required adjustments and enhancements to `FakeBank`, `BankClient`, `BusyRetryPolicy`, and `PaymentEngine`, having the core types, write-ahead sequence, and scenario test contracts agreed upon prevented foundational drift.
 
 ---
 
 ## 3. Where the AI was wrong
 
-- **Ne üretildi:** Prompt 6 sırasında `PaymentEngine.swift` implemente edilirken (`d5c18d4`), `applyPaymentOutcome` metodunda `.definitelyNotSent`, `.rejectedFinal` ve `.busy` dallarındaki disk persistansı (`try await store.mutate { draft in draft.updateAttemptState(...) }`) boş bir `catch {}` bloğu içine alındı.
-- **Neden yanlıştı (hangi senaryoda / kullanıcı ne görürdü):** `LedgerStore.mutate` metodu, disk yazımı (`persistence.save`) başarılı olmadan `self.state = draft` güncellemesini yapmaz. Eğer disk doluluğu, I/O hatası veya donmuş persistans nedeniyle disk yazımı başarısız olursa, boş `catch {}` hatayı sessizce yutuyordu. Sonuç olarak diskte ve bellekteki `LedgerStore`'da girişim hala `.sending` durumunda kalırken, fonksiyon çağıran view model'a `.notSent` veya `.failed` dönüyordu. Kullanıcı açısından: ekrandaki `currentSnapshot()` verisi bellekteki `.sending` durumunu okuduğu için ödeme satırında sonsuz "Sending…" spinner'ı takılı kalıyor, `isSending` true kaldığı için "Send" butonu kalıcı olarak kilitleniyor ve kullanıcı yeni ödeme yapamıyordu ("lies-to-user / UI freeze").
-- **Kim fark etti:** Prompt 14 ("Hostile code review") sırasında checklist'in 8. maddesi ("silent try? swallowing errors that matter") ve disk-bellek desenkronizasyon riskleri denetlenirken AI (agent) tarafından tespit edildi.
-- **Ne yaptık:** Commit `e3c8667` (`Fix: Prevent desynchronized state when attempt persistence fails`) ile düzeltildi. Disk yazımı başarısız olursa, diskte hala `.sending` kaldığı (ve bir sonraki uygulama açılışında `recoverOnLaunch()` bunu `.unconfirmed` yapacağı) bilindiğinden, sahte bir terminal durum dönmek yerine durum dürüstçe `.unconfirmed` olarak dönüştürüldü ve kullanıcıya dürüst durum ("Not confirmed") yansıtıldı.
+- **What was produced:** When implementing `PaymentEngine.swift` in Prompt 6 (`d5c18d4`), the disk persistence calls (`try await store.mutate { draft in draft.updateAttemptState(...) }`) in the `.definitelyNotSent`, `.rejectedFinal`, and `.busy` branches of `applyPaymentOutcome` were wrapped in an empty `catch {}` block.
+- **Why it was wrong:** `LedgerStore.mutate` only updates in-memory state (`self.state = draft`) if `persistence.save(draft)` succeeds. If disk persistence failed (e.g. disk full, permission issue, or frozen persistence), the empty `catch {}` silently swallowed the error. As a result, both the disk file and in-memory `LedgerStore` remained in state `.sending`, while `applyPaymentOutcome` returned `.notSent` or `.failed` to the caller. For the user, the UI snapshot read `.sending` from `store`, keeping the Send button permanently disabled (`!isSending`) and displaying a perpetual "Sending…" spinner, freezing the payment form ("lies-to-user / UI freeze").
+- **Who noticed:** Found during the Prompt 14 hostile review run while auditing for swallowed errors (`catch {}`) and memory/disk state divergence.
+- **What was done:** Fixed in commit `e3c8667` (`Fix: Prevent desynchronized state when attempt persistence fails`). If persisting a terminal state fails, the on-disk state remains `.sending` (which recovers to `.unconfirmed` on relaunch). Rather than returning a false terminal state, the outcome is honestly reported as `.unconfirmed`, keeping the UI in sync with actual disk reality.
 
 ---
 
@@ -69,6 +74,7 @@ If given another two hours, the following additions would be prioritized:
 5. **Structured Logging (`OSLog`)**: Replace silent catches with Apple's unified logging system, tagging subsystems and privacy-redacted categories (`OSLogPrivacy.public` vs `.private`) without logging sensitive PII.
 6. **Detailed Error Handling for Unknown 4xx**: Parse and display server-provided error codes beyond standard 404/422/429 status codes.
 7. **Transaction Audit Trail**: Detailed view showing attempt creation timestamp, raw idempotency key, bank transaction ID, and full change-log history.
+8. **Graceful Storage Open Failure**: Storage initialization in `AppEnvironment` currently uses `fatalError` if disk storage fails to open. A proper production solution needs a visible error state rather than an unhandled crash or a silent fallback to an empty in-memory store (which would hide unconfirmed payments).
 
 ---
 
