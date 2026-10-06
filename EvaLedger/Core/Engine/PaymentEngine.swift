@@ -58,6 +58,14 @@ public actor PaymentEngine {
         return LedgerSnapshot(state: state, isStale: isStale)
     }
 
+    /// Resets the engine state and persisted ledger data to empty.
+    public func resetData() async throws {
+        try await store.mutate { state in
+            state = LedgerState()
+        }
+        isStale = true
+    }
+
     /// Sends a payment to the specified counterparty.
     /// Invariant: Write-ahead logging persists the attempt in `.sending` state BEFORE any network request is issued.
     public func send(to toUsername: String, amountCents: Int, description: String) async -> SendResult {

@@ -66,7 +66,7 @@ EvaLedger/
 │   │   └── EngineClock.swift             # EngineClock protocol and SystemClock
 │   └── AppEnvironment.swift              # Composition root wiring dependencies
 ├── Fake/
-│   └── FakeBank.swift                    # Single-file in-memory bank with dynamic URLProtocol routing
+│   └── FakeBank.swift                    # Single-file fake bank with dynamic URLProtocol routing & persistence
 ├── UI/
 │   ├── LedgerView.swift                  # Single plain SwiftUI screen (Header, Rows, Send Form)
 │   ├── LedgerViewModel.swift             # Thin @Observable view model forwarding intents
@@ -84,7 +84,7 @@ EvaLedgerTests/
 
 ## Where the Fake Lives
 The fake bank lives in a single, self-contained file: `EvaLedger/Fake/FakeBank.swift`.
-- It maintains its own thread-safe in-memory balances and transaction change log, completely isolated from client storage. Per the specification, keeping it in-memory guarantees strict test isolation and fast parallel test execution.
+- It maintains its own state (balances, transaction log, idempotency records), completely isolated from client storage. When run in the app, it persists to a separate file (`evaledger_bank.json`) so process restarts do not wipe the bank. In automated tests, it runs in-memory for speed and isolation.
 - It intercepts app HTTP requests using a custom `URLProtocol` registered on the app's `URLSession`.
 - The app talks to the bank solely through standard HTTP requests (`GET /v1/transactions`, `POST /v1/payments`).
 - The app production paths never reference `FakeBank` directly; only the composition root (`AppEnvironment`) and the `#if DEBUG` `DebugPanelView` interact with it for simulator testing and remote control.

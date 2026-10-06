@@ -145,9 +145,15 @@ public struct LedgerView: View {
                 }
             }
             .sheet(isPresented: $showingDebugPanel) {
-                DebugPanelView(bank: viewModel.bank) {
-                    await viewModel.refresh()
-                }
+                DebugPanelView(
+                    bank: viewModel.bank,
+                    onBankMutated: {
+                        await viewModel.refresh()
+                    },
+                    onResetAll: {
+                        await viewModel.resetAllData()
+                    }
+                )
             }
             #endif
         }

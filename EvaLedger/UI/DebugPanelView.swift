@@ -9,18 +9,36 @@ import SwiftUI
 public struct DebugPanelView: View {
     public let bank: FakeBank
     public let onBankMutated: () async -> Void
+    public let onResetAll: (() async -> Void)?
 
     @State private var isUnreachable: Bool = false
     @State private var holdIncoming: Bool = false
 
-    public init(bank: FakeBank, onBankMutated: @escaping () async -> Void) {
+    public init(
+        bank: FakeBank,
+        onBankMutated: @escaping () async -> Void,
+        onResetAll: (() async -> Void)? = nil
+    ) {
         self.bank = bank
         self.onBankMutated = onBankMutated
+        self.onResetAll = onResetAll
     }
 
     public var body: some View {
         NavigationStack {
             List {
+                Section("Reset") {
+                    Button("Reset bank and app data", role: .destructive) {
+                        Task {
+                            if let onResetAll {
+                                await onResetAll()
+                            } else {
+                                bank.resetData()
+                                await onBankMutated()
+                            }
+                        }
+                    }
+                }
                 Section("Actions") {
                     Button("Settle pending") {
                         bank.settlePending()

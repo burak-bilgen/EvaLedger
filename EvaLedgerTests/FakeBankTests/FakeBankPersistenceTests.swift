@@ -51,42 +51,42 @@ struct FakeBankPersistenceTests {
     @Test("FakeBank state survives across new instance when storageURL is provided")
     func fakeBankStateSurvivesAcrossInstancesWithStorageURL() async throws {
         let bankFile = makeTempURL(prefix: "test_bank")
-        let host = "persist.bank.test"
+        let host = "\(UUID().uuidString).bank.test"
 
-        var bank1: FakeBank? = FakeBank(uniqueHost: host, storageURL: bankFile)
-        guard let bank = bank1 else { return }
-        let session = bank.makeSession()
-
-        // 1. Make payment from Eva -> Alex 2500
+        let cursor1: Int?
         let req1 = PaymentRequest(toUsername: "alex", amountCents: 2500, description: "lunch", idempotencyKey: "k_persisted")
-        let (data1, resp1) = try await postPayment(bank: bank, session: session, request: req1)
-        #expect(resp1.statusCode == 201)
-        let payment1 = try JSONDecoder().decode(PaymentResponse.self, from: data1)
-        #expect(payment1.transaction.id == "txn_00000001")
 
-        // 2. Settle payment
-        bank.settlePending()
-        #expect(bank.balance(of: "eva") == 97500)
-        #expect(bank.balance(of: "alex") == 102500)
+        do {
+            let bank = FakeBank(uniqueHost: host, storageURL: bankFile)
+            let session = bank.makeSession()
 
-        // 3. Incoming payment from Mila -> Eva 1000
-        bank.pay(from: "mila", toEva: "eva", amountCents: 1000, description: "coffee")
+            // 1. Make payment from Eva -> Alex 2500
+            let (data1, resp1) = try await postPayment(bank: bank, session: session, request: req1)
+            #expect(resp1.statusCode == 201)
+            let payment1 = try JSONDecoder().decode(PaymentResponse.self, from: data1)
+            #expect(payment1.transaction.id == "txn_00000001")
 
-        // 4. Balance ahead incoming payment from Noor -> Eva 1708
-        bank.setHoldIncomingFromFeed(true)
-        bank.pay(from: "noor", toEva: "eva", amountCents: 1708, description: "split")
+            // 2. Settle payment
+            bank.settlePending()
+            #expect(bank.balance(of: "eva") == 97500)
+            #expect(bank.balance(of: "alex") == 102500)
 
-        // 5. Late reject payment 1 (Eva refunded)
-        bank.lateReject(transactionID: payment1.transaction.id, reason: "Card processor error")
-        #expect(bank.balance(of: "eva") == 101708)
+            // 3. Incoming payment from Mila -> Eva 1000
+            bank.pay(from: "mila", toEva: "eva", amountCents: 1000, description: "coffee")
 
-        // Verify initial feed
-        let (feed1, _) = try await getFeed(bank: bank, session: session)
-        let cursor1 = feed1.cursor
-        #expect(cursor1 != nil)
+            // 4. Balance ahead incoming payment from Noor -> Eva 1708
+            bank.setHoldIncomingFromFeed(true)
+            bank.pay(from: "noor", toEva: "eva", amountCents: 1708, description: "split")
 
-        // KILL BANK 1: drop instance
-        bank1 = nil
+            // 5. Late reject payment 1 (Eva refunded)
+            bank.lateReject(transactionID: payment1.transaction.id, reason: "Card processor error")
+            #expect(bank.balance(of: "eva") == 101708)
+
+            // Verify initial feed
+            let (feed1, _) = try await getFeed(bank: bank, session: session)
+            cursor1 = feed1.cursor
+            #expect(cursor1 != nil)
+        }
 
         // RESTART BANK 2 from same storageURL
         let bank2 = FakeBank(uniqueHost: host, storageURL: bankFile)
@@ -132,44 +132,42 @@ struct FakeBankPersistenceTests {
     func appAndBankBothSurviveProcessKillEndToEnd() async throws {
         let bankFile = makeTempURL(prefix: "e2e_bank")
         let ledgerFile = makeTempURL(prefix: "e2e_ledger")
-        let host = "e2e.bank.test"
+        let host = "\(UUID().uuidString).bank.test"
 
         // PHASE 1: Running app and bank
-        var bankA: FakeBank? = FakeBank(uniqueHost: host, storageURL: bankFile)
-        guard let bank1 = bankA else { return }
+        do {
+            let bankA = FakeBank(uniqueHost: host, storageURL: bankFile)
+            let filePersistenceA = FileLedgerPersistence(fileURL: ledgerFile)
+            let storeA = try LedgerStore(persistence: filePersistenceA)
+            let sleeperA = RecordingSleeper()
+            let clientA = URLSessionBankClient(session: bankA.makeSession(), baseURL: bankA.baseURL, sleeper: sleeperA)
+            let engineA = PaymentEngine(
+                store: storeA,
+                bankClient: clientA,
+                retryPolicy: BusyRetryPolicy(sleeper: sleeperA),
+                idGenerator: DeterministicIDGenerator(),
+                clock: FixedClock()
+            )
 
-        let filePersistenceA = FileLedgerPersistence(fileURL: ledgerFile)
-        let storeA = try LedgerStore(persistence: filePersistenceA)
-        let sleeperA = RecordingSleeper()
-        let clientA = URLSessionBankClient(session: bank1.makeSession(), baseURL: bank1.baseURL, sleeper: sleeperA)
-        let engineA = PaymentEngine(
-            store: storeA,
-            bankClient: clientA,
-            retryPolicy: BusyRetryPolicy(sleeper: sleeperA),
-            idGenerator: DeterministicIDGenerator(),
-            clock: FixedClock()
-        )
+            // Initial sync
+            _ = await engineA.sync()
 
-        // Initial sync
-        _ = await engineA.sync()
+            // Eva sends 2500 to alex
+            let sendRes = await engineA.send(to: "alex", amountCents: 2500, description: "lunch")
+            guard case .accepted = sendRes else {
+                Issue.record("Expected .accepted")
+                return
+            }
 
-        // Eva sends 2500 to alex
-        let sendRes = await engineA.send(to: "alex", amountCents: 2500, description: "lunch")
-        guard case .accepted = sendRes else {
-            Issue.record("Expected .accepted")
-            return
+            // Bank settles and Mila pays Eva
+            bankA.settlePending()
+            bankA.pay(from: "mila", toEva: "eva", amountCents: 1000, description: "coffee")
+
+            // Sync again
+            _ = await engineA.sync()
         }
 
-        // Bank settles and Mila pays Eva
-        bank1.settlePending()
-        bank1.pay(from: "mila", toEva: "eva", amountCents: 1000, description: "coffee")
-
-        // Sync again
-        _ = await engineA.sync()
-
-        // SIMULATE REAL CRASH / PROCESS TERMINATION
-        // All in-memory app objects and bank instance are dropped!
-        bankA = nil
+        // SIMULATE REAL CRASH / PROCESS TERMINATION: all Phase 1 in-memory objects deallocated
 
         // PHASE 2: Brand new process launch: rebuild app and bank from disk files
         let bankB = FakeBank(uniqueHost: host, storageURL: bankFile)

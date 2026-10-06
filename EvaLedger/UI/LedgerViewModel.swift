@@ -132,4 +132,10 @@ public final class LedgerViewModel {
     public func refresh() async {
         self.snapshot = await engine.sync()
     }
+
+    public func resetAllData() async {
+        bank.resetData()
+        try? await engine.resetData()
+        self.snapshot = await engine.sync()
+    }
 }

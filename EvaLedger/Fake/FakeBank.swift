@@ -33,19 +33,23 @@ nonisolated public struct BankRequestLogEntry: Equatable, Sendable {
 /// State is isolated per instance using a unique `.bank.test` hostname.
 nonisolated public final class FakeBank: @unchecked Sendable {
     // MARK: - Registry for URLProtocol routing
-    private static let registryLock = NSLock()
+    private static let registryLock = NSRecursiveLock()
     private static var registry: [String: FakeBank] = [:]
 
     private static func register(_ bank: FakeBank, host: String) {
+        var oldBank: FakeBank?
         registryLock.lock()
-        defer { registryLock.unlock() }
-        registry[host] = bank
+        oldBank = registry.updateValue(bank, forKey: host)
+        registryLock.unlock()
+        _ = oldBank
     }
 
-    private static func unregister(host: String) {
+    private static func unregister(bank: FakeBank, host: String) {
         registryLock.lock()
         defer { registryLock.unlock() }
-        registry.removeValue(forKey: host)
+        if registry[host] === bank {
+            registry.removeValue(forKey: host)
+        }
     }
 
     fileprivate static func bank(for host: String) -> FakeBank? {
@@ -94,17 +98,90 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     private var hangReachedContinuation: CheckedContinuation<Void, Never>?
     private var onPaymentCreatedHook: (@Sendable () -> Void)?
 
+    // MARK: - State Persistence
+    private struct PersistedBankState: Codable {
+        struct ChangeLogEntry: Codable {
+            let seq: Int
+            let txId: String
+        }
+
+        var balances: [String: Int]
+        var transactions: [String: Transaction]
+        var changeLog: [ChangeLogEntry]
+        var nextSeq: Int
+        var idempotencyMap: [String: [String: String]]
+        var txIdCounter: Int
+        var creditedToRecipientTxIDs: [String]
+        var heldTxIDs: [String]
+        var deliveredTxIDs: [String]
+        var holdIncomingFromFeed: Bool
+    }
+
+    private func loadPersistedStateLocked() {
+        guard let storageURL else { return }
+        guard FileManager.default.fileExists(atPath: storageURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: storageURL)
+            let state = try JSONDecoder().decode(PersistedBankState.self, from: data)
+            self.balances = state.balances
+            self.transactions = state.transactions
+            self.changeLog = state.changeLog.map { ($0.seq, $0.txId) }
+            self.nextSeq = state.nextSeq
+            self.idempotencyMap = state.idempotencyMap
+            self.txIdCounter = state.txIdCounter
+            self.creditedToRecipientTxIDs = Set(state.creditedToRecipientTxIDs)
+            self.heldTxIDs = state.heldTxIDs
+            self.deliveredTxIDs = Set(state.deliveredTxIDs)
+            self.holdIncomingFromFeed = state.holdIncomingFromFeed
+        } catch {
+            // Silently fall back to fresh state if corrupted
+        }
+    }
+
+    private func persistStateLocked() {
+        guard let storageURL else { return }
+        let state = PersistedBankState(
+            balances: balances,
+            transactions: transactions,
+            changeLog: changeLog.map { PersistedBankState.ChangeLogEntry(seq: $0.seq, txId: $0.txId) },
+            nextSeq: nextSeq,
+            idempotencyMap: idempotencyMap,
+            txIdCounter: txIdCounter,
+            creditedToRecipientTxIDs: Array(creditedToRecipientTxIDs),
+            heldTxIDs: heldTxIDs,
+            deliveredTxIDs: Array(deliveredTxIDs),
+            holdIncomingFromFeed: holdIncomingFromFeed
+        )
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(state)
+            let dir = storageURL.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: dir.path) {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            }
+            try data.write(to: storageURL, options: .atomic)
+        } catch {
+            // Persistence error ignored or logged
+        }
+    }
+
     public init(uniqueHost: String = UUID().uuidString + ".bank.test", storageURL: URL? = nil) {
         self.host = uniqueHost
         self.storageURL = storageURL
         self.baseURL = URL(string: "https://\(uniqueHost)") ?? URL(fileURLWithPath: "/")
         FakeBank.register(self, host: uniqueHost)
+        if storageURL != nil {
+            lock.lock()
+            loadPersistedStateLocked()
+            lock.unlock()
+        }
     }
 
     deinit {
         cancelHanging()
         releaseGate()
-        FakeBank.unregister(host: host)
+        FakeBank.unregister(bank: self, host: host)
     }
 
     public func makeSession() -> URLSession {
@@ -157,6 +234,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         holdIncomingFromFeed = hold
+        persistStateLocked()
     }
 
     /// Re-appends held incoming transactions to the feed change log with brand-new sequence numbers.
@@ -169,6 +247,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         }
         heldTxIDs.removeAll()
         holdIncomingFromFeed = false
+        persistStateLocked()
     }
 
     /// Flips a completed transaction to rejected, refunds Eva, reverses counterparty credit, and appends a feed change.
@@ -201,6 +280,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
         changeLog.append((seq: nextSeq, txId: transactionID))
         nextSeq += 1
+        persistStateLocked()
     }
 
     // MARK: - Admin Commands
@@ -231,6 +311,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             changeLog.append((seq: nextSeq, txId: id))
             nextSeq += 1
         }
+        persistStateLocked()
     }
 
     /// Someone else pays Eva. In normal mode, debits sender immediately and credits recipient upon settle.
@@ -267,6 +348,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             changeLog.append((seq: nextSeq, txId: txId))
             nextSeq += 1
         }
+        persistStateLocked()
     }
 
     // MARK: - Test Staging Synchronization
@@ -369,6 +451,38 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         return _requestLog
     }
 
+    // MARK: - Reset
+
+    /// Clears all bank state in memory and deletes the persistence file if storageURL is set.
+    public func resetData() {
+        lock.lock()
+        defer { lock.unlock() }
+        balances = [
+            "eva": 100000,
+            "alex": 100000,
+            "mila": 100000,
+            "noor": 100000
+        ]
+        transactions.removeAll()
+        changeLog.removeAll()
+        nextSeq = 1
+        idempotencyMap.removeAll()
+        _paymentRequestCount = 0
+        _requestLog.removeAll()
+        txIdCounter = 0
+        lostAnswerArmed = false
+        isUnreachable = false
+        busyScript.removeAll()
+        repeatedEntriesMode = nil
+        deliveredTxIDs.removeAll()
+        holdIncomingFromFeed = false
+        heldTxIDs.removeAll()
+        creditedToRecipientTxIDs.removeAll()
+        if let storageURL {
+            try? FileManager.default.removeItem(at: storageURL)
+        }
+    }
+
     // MARK: - Internal HTTP Dispatch
 
     private enum RequestDisposition {
@@ -454,7 +568,6 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
     private func handleFeed(request: URLRequest, client: URLProtocolClient, protocolInstance: URLProtocol) {
         lock.lock()
-        defer { lock.unlock() }
 
         var cursorValue: Int? = nil
         if let query = request.url?.query {
@@ -523,6 +636,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         for tx in feedTransactions {
             deliveredTxIDs.insert(tx.id)
         }
+        persistStateLocked()
 
         let evaBalance = balances["eva", default: 100000]
         let response = FeedResponse(
@@ -532,6 +646,8 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         )
 
         _requestLog.append(BankRequestLogEntry(method: "GET", path: "/v1/transactions", idempotencyKey: nil, statusCode: 200))
+        lock.unlock()
+
         respondEncodable(status: 200, value: response, request: request, client: client, protocolInstance: protocolInstance)
     }
 
@@ -633,6 +749,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
         changeLog.append((seq: nextSeq, txId: newTxId))
         nextSeq += 1
+        persistStateLocked()
 
         let isLost = lostAnswerArmed
         if isLost { lostAnswerArmed = false }
