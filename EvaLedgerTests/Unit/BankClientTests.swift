@@ -218,4 +218,22 @@ struct BankClientTests {
         #expect(sleeper.requestedDurations[2] == 2.0)
         #expect(sleeper.requestedDurations[3] == 4.0)
     }
+
+    @Test func fetchFeedRetriesOnBusyResponsesAndSucceeds() async throws {
+        let bank = FakeBank(uniqueHost: UUID().uuidString + ".bank.test")
+        let session = bank.makeSession()
+        let sleeper = RecordingSleeper()
+        let client = URLSessionBankClient(session: session, baseURL: bank.baseURL, sleeper: sleeper)
+
+        bank.armBusy([
+            .tooManyRequests(retryAfterSeconds: 2),
+            .serviceUnavailable
+        ])
+
+        let feed = try await client.fetchFeed(cursor: nil)
+        #expect(feed.balanceCents == 100000)
+        #expect(sleeper.requestedDurations.count == 2)
+        #expect(sleeper.requestedDurations[0] == 2.0)
+        #expect(sleeper.requestedDurations[1] == 1.0)
+    }
 }
