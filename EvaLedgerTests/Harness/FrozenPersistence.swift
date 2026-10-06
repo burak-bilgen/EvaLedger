@@ -13,6 +13,9 @@ nonisolated public final class FrozenPersistence: Persistence, @unchecked Sendab
     private let underlying: any Persistence
     private let lock = NSLock()
     private var isFrozen: Bool = false
+    private var saveSuccessCount: Int = 0
+    private var throwAfterSaves: Int? = nil
+    private var saveError: (any Error)? = nil
 
     public init(wrapping: any Persistence) {
         self.underlying = wrapping
@@ -24,6 +27,20 @@ nonisolated public final class FrozenPersistence: Persistence, @unchecked Sendab
         isFrozen = true
     }
 
+    public func armThrowOnSave(_ error: any Error = PersistenceError.writeFailed(NSError(domain: "disk_full", code: 1))) {
+        lock.lock()
+        defer { lock.unlock() }
+        saveError = error
+        throwAfterSaves = 0
+    }
+
+    public func armThrowAfterSuccessfulSaves(_ count: Int, error: any Error = PersistenceError.writeFailed(NSError(domain: "disk_full", code: 1))) {
+        lock.lock()
+        defer { lock.unlock() }
+        throwAfterSaves = count
+        saveError = error
+    }
+
     public func load() throws -> LedgerState? {
         return try underlying.load()
     }
@@ -31,6 +48,13 @@ nonisolated public final class FrozenPersistence: Persistence, @unchecked Sendab
     public func save(_ state: LedgerState) throws {
         lock.lock()
         let frozen = isFrozen
+        let afterCount = throwAfterSaves
+        let currentCount = saveSuccessCount
+        let errorToThrow = saveError
+        if let afterCount, currentCount >= afterCount, let errorToThrow {
+            lock.unlock()
+            throw errorToThrow
+        }
         lock.unlock()
 
         if frozen {
@@ -38,5 +62,9 @@ nonisolated public final class FrozenPersistence: Persistence, @unchecked Sendab
             return
         }
         try underlying.save(state)
+
+        lock.lock()
+        saveSuccessCount += 1
+        lock.unlock()
     }
 }

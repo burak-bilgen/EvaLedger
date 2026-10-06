@@ -179,4 +179,39 @@ struct PersistenceTests {
         let onDisk = try persistence.load()
         #expect(onDisk?.transactions.count == taskCount)
     }
+
+    @Test func persistenceFailureDuringPaymentOutcomeDoesNotLeaveRowStuckInSending() async throws {
+        let harness = AppHarness()
+        let bank = harness.bank
+        guard let engine = harness.engine else {
+            Issue.record("Harness engine not initialized")
+            return
+        }
+
+        // Arm bank unreachable so outcome is definitelyNotSent
+        bank.setUnreachable(true)
+
+        // Save 0 is write-ahead save. Save 1 is applyPaymentOutcome update.
+        // Write-ahead succeeds; outcome persistence throws error.
+        harness.frozenPersistence.armThrowAfterSuccessfulSaves(1)
+
+        let result = await engine.send(to: "alex", amountCents: 2500, description: "lunch")
+        guard case .unconfirmed = result else {
+            Issue.record("Expected .unconfirmed fallback when persistence fails on outcome, got \(result)")
+            return
+        }
+
+        // Snapshot from engine must NOT have row stuck in .sending
+        let snapshot = await engine.currentSnapshot()
+        #expect(snapshot.rows.count == 1)
+        #expect(snapshot.rows.first?.status == .unconfirmed)
+
+        // ViewModel shows .unconfirmed and allows subsequent payment
+        let viewModel = await LedgerViewModel(engine: engine, bank: bank)
+        await MainActor.run {
+            #expect(!viewModel.isSending)
+            viewModel.amountText = "15.00"
+            #expect(viewModel.canSend)
+        }
+    }
 }
