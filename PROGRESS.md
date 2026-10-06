@@ -23,3 +23,10 @@
 - Assumptions: Handled undecodable 2xx responses and 5xx (except 503) as ambiguous. Bounded busy retry max attempts is 5, delay capped at 30 seconds.
 - Doubts: None; outcome mapping and retry loop verified via FakeBank and unit tests.
 - Test result: Green (43 tests passed in 0.044s across 6 suites).
+
+## Prompt 5: Persistence & LedgerStore Actor
+- What changed: Implemented FileLedgerPersistence with atomic writes (.atomic + replaceItemAt backup), corrupt file backup recovery, FrozenPersistence test harness, and LedgerStore actor with rollback on persistence failure. Added PersistenceTests with concurrency and round-trip tests.
+- Assumptions: When persistence fails, LedgerStore rolls back in-memory state to the previously known good state before rethrowing. Future schema versions throw typed errors.
+- Doubts: None; atomic file operations and concurrency guarantees verified by 7 new tests.
+- Test result: Green (50 tests passed in 0.051s across 7 suites).
+
