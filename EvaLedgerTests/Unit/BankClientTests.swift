@@ -210,7 +210,7 @@ struct BankClientTests {
             return .busy(retryAfter: nil)
         }
 
-        #expect(outcome == .definitelyNotSent)
+        #expect(outcome == .definitelyNotSent(reason: "bank busy"))
         #expect(callCount == 5) // maxAttempts == 5
         #expect(sleeper.requestedDurations.count == 4) // Slept 4 times before 5th attempt
         #expect(sleeper.requestedDurations[0] == 0.5)

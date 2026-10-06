@@ -9,9 +9,14 @@ nonisolated public enum PaymentOutcome: Equatable, Sendable {
     case accepted(Transaction, replayed: Bool)
     case rejectedFinal(code: String, message: String)
     case busy(retryAfter: TimeInterval?)
-    case definitelyNotSent
+    case definitelyNotSent(reason: String)
     case ambiguous(reason: String)
+
+    public static var definitelyNotSent: PaymentOutcome {
+        .definitelyNotSent(reason: "Payment was not received by bank")
+    }
 }
+
 
 nonisolated public enum BankClientError: Error, Equatable, Sendable {
     case transport(String)

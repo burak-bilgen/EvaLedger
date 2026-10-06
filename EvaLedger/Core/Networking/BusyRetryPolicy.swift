@@ -67,13 +67,13 @@ nonisolated public struct BusyRetryPolicy: Sendable {
                     }
                 } else {
                     // Budget exhausted
-                    return .definitelyNotSent
+                    return .definitelyNotSent(reason: "bank busy")
                 }
             default:
                 return outcome
             }
         }
 
-        return .definitelyNotSent
+        return .definitelyNotSent(reason: "bank busy")
     }
 }

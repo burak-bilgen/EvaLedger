@@ -236,9 +236,8 @@ public actor PaymentEngine {
             updated.state = .unconfirmed
             return .unconfirmed(updated)
 
-        case .definitelyNotSent:
+        case .definitelyNotSent(let reason):
             self.isStale = true
-            let reason = "Payment was not received by bank"
             do {
                 try await store.mutate { draft in
                     draft.updateAttemptState(id: attemptID, state: .notSent(reason: reason))
