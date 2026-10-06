@@ -19,7 +19,7 @@ struct LedgerViewModelTests {
             return
         }
 
-        let viewModel = LedgerViewModel(engine: engine, bank: harness.bank)
+        let viewModel = LedgerViewModel(engine: engine)
 
         // Empty form: cannot send
         #expect(!viewModel.canSend)
@@ -55,7 +55,7 @@ struct LedgerViewModelTests {
             return
         }
 
-        let viewModel = LedgerViewModel(engine: engine, bank: harness.bank)
+        let viewModel = LedgerViewModel(engine: engine)
 
         // Empty input shows no error yet
         viewModel.amountText = ""
@@ -85,7 +85,7 @@ struct LedgerViewModelTests {
             return
         }
 
-        let viewModel = LedgerViewModel(engine: engine, bank: harness.bank)
+        let viewModel = LedgerViewModel(engine: engine)
 
         // At initialization, state is stale (not synced)
         #expect(viewModel.snapshot.isStale)

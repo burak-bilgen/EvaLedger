@@ -207,7 +207,7 @@ struct PersistenceTests {
         #expect(snapshot.rows.first?.status == .unconfirmed)
 
         // ViewModel shows .unconfirmed and allows subsequent payment
-        let viewModel = await LedgerViewModel(engine: engine, bank: bank)
+        let viewModel = await LedgerViewModel(engine: engine)
         await MainActor.run {
             #expect(!viewModel.isSending)
             viewModel.amountText = "15.00"

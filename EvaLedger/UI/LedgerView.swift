@@ -10,11 +10,17 @@ public struct LedgerView: View {
     @State public var viewModel: LedgerViewModel
     #if DEBUG
     @State private var showingDebugPanel = false
-    #endif
+    private let debugControls: (any BankDebugControls)?
 
+    public init(viewModel: LedgerViewModel, debugControls: (any BankDebugControls)? = nil) {
+        _viewModel = State(initialValue: viewModel)
+        self.debugControls = debugControls
+    }
+    #else
     public init(viewModel: LedgerViewModel) {
         _viewModel = State(initialValue: viewModel)
     }
+    #endif
 
     public var body: some View {
         NavigationStack {
@@ -136,24 +142,29 @@ public struct LedgerView: View {
             }
             #if DEBUG
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingDebugPanel = true
-                    } label: {
-                        Image(systemName: "ladybug.fill")
+                if debugControls != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingDebugPanel = true
+                        } label: {
+                            Image(systemName: "ladybug.fill")
+                        }
                     }
                 }
             }
             .sheet(isPresented: $showingDebugPanel) {
-                DebugPanelView(
-                    bank: viewModel.bank,
-                    onBankMutated: {
-                        await viewModel.refresh()
-                    },
-                    onResetAll: {
-                        await viewModel.resetAllData()
-                    }
-                )
+                if let debugControls {
+                    DebugPanelView(
+                        bank: debugControls,
+                        onBankMutated: {
+                            await viewModel.refresh()
+                        },
+                        onResetAll: {
+                            debugControls.resetData()
+                            await viewModel.resetData()
+                        }
+                    )
+                }
             }
             #endif
         }

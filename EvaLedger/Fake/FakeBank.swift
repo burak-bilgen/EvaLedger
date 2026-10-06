@@ -928,3 +928,8 @@ nonisolated public final class FakeBankURLProtocol: URLProtocol, @unchecked Send
         }
     }
 }
+
+#if DEBUG
+extension FakeBank: BankDebugControls {}
+#endif
+

@@ -6,8 +6,22 @@
 import SwiftUI
 
 #if DEBUG
+public protocol BankDebugControls: AnyObject, Sendable {
+    func resetData()
+    func settlePending()
+    func pay(from sender: String, toEva recipient: String, amountCents: Int, description: String)
+    func transactions(involving username: String) -> [Transaction]
+    func lateReject(transactionID: String, reason: String)
+    func armLostAnswer()
+    func setUnreachable(_ unreachable: Bool)
+    func armBusy(_ script: [BusyResponse])
+    func armRepeatedEntries(_ mode: RepeatedEntriesMode)
+    func setHoldIncomingFromFeed(_ hold: Bool)
+    func releaseHeldTransactions()
+}
+
 public struct DebugPanelView: View {
-    public let bank: FakeBank
+    public let bank: any BankDebugControls
     public let onBankMutated: () async -> Void
     public let onResetAll: (() async -> Void)?
 
@@ -15,7 +29,7 @@ public struct DebugPanelView: View {
     @State private var holdIncoming: Bool = false
 
     public init(
-        bank: FakeBank,
+        bank: any BankDebugControls,
         onBankMutated: @escaping () async -> Void,
         onResetAll: (() async -> Void)? = nil
     ) {

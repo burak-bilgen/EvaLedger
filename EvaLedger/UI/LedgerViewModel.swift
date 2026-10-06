@@ -10,7 +10,6 @@ import Observation
 @MainActor
 public final class LedgerViewModel {
     public let engine: PaymentEngine
-    public let bank: FakeBank
 
     public private(set) var snapshot: LedgerSnapshot
     public var selectedRecipient: String = "alex"
@@ -27,9 +26,8 @@ public final class LedgerViewModel {
 
     private var pollingTask: Task<Void, Never>? = nil
 
-    public init(engine: PaymentEngine, bank: FakeBank) {
+    public init(engine: PaymentEngine) {
         self.engine = engine
-        self.bank = bank
         self.snapshot = LedgerSnapshot(state: LedgerState(), isStale: true)
     }
 
@@ -133,8 +131,7 @@ public final class LedgerViewModel {
         self.snapshot = await engine.sync()
     }
 
-    public func resetAllData() async {
-        bank.resetData()
+    public func resetData() async {
         try? await engine.resetData()
         self.snapshot = await engine.sync()
     }
