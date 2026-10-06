@@ -24,7 +24,7 @@ xcodebuild test \
   -quiet
 ```
 
-All 74 tests across 17 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite completes deterministically in ~0.1 seconds.
+All 75 tests across 17 suites are implemented purely in **Swift Testing** (`import Testing`, `@Test`, `#expect`) — no XCTest, no external network calls, no localhost servers, and zero wall-clock sleeps. The entire test suite completes deterministically in ~0.1 seconds.
 
 ---
 

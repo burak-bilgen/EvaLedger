@@ -35,7 +35,7 @@ The work was completed using an AI pair programmer, as permitted by the assignme
 
 ## 2. The prompt that got you furthest
 
-Prompt 1 (verbatim from `PROMPTS.md`):
+Prompt 1 (verbatim from `docs/PROMPTS.md`):
 
 ```markdown
 ## Prompt 1: Plan (no code, approval gate)
@@ -53,7 +53,7 @@ Then stop and wait for my approval.
 ```
 
 **Why this prompt was selected:**
-Prompt 1 produced `PLAN.md` and established the architectural invariants before any production code was written. It forced an exhaustive `PaymentAttempt` state-transition matrix up front—ensuring write-ahead persistence, launch recovery of orphaned `.sending` attempts to `.unconfirmed` without network I/O, and read-only feed reconciliation matching by idempotency key. It also locked in the public API signatures and exact scenario assertions across all 7 scenarios. While later prompts still required adjustments and enhancements to `FakeBank`, `BankClient`, `BusyRetryPolicy`, and `PaymentEngine`, having the core types, write-ahead sequence, and scenario test contracts agreed upon prevented foundational drift.
+Prompt 1 produced `docs/PLAN.md` and established the architectural invariants before any production code was written. It forced an exhaustive `PaymentAttempt` state-transition matrix up front—ensuring write-ahead persistence, launch recovery of orphaned `.sending` attempts to `.unconfirmed` without network I/O, and read-only feed reconciliation matching by idempotency key. It also locked in the public API signatures and exact scenario assertions across all 7 scenarios. While later prompts still required adjustments and enhancements to `FakeBank`, `BankClient`, `BusyRetryPolicy`, and `PaymentEngine`, having the core types, write-ahead sequence, and scenario test contracts agreed upon prevented foundational drift.
 
 ---
 
