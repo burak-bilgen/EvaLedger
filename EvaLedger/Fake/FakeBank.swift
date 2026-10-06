@@ -80,11 +80,21 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
     // Switches
     private var lostAnswerArmed: Bool = false
-    private var isUnreachable: Bool = false
+    private var _isUnreachable: Bool = false
+    public var isUnreachable: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _isUnreachable
+    }
     private var busyScript: [BusyResponse] = []
     private var repeatedEntriesMode: RepeatedEntriesMode? = nil
     private var deliveredTxIDs: Set<String> = []
-    private var holdIncomingFromFeed: Bool = false
+    private var _holdIncomingFromFeed: Bool = false
+    public var isHoldingIncoming: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _holdIncomingFromFeed
+    }
     private var heldTxIDs: [String] = []
     private var creditedToRecipientTxIDs: Set<String> = []
 
@@ -140,7 +150,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             self.creditedToRecipientTxIDs = Set(state.creditedToRecipientTxIDs)
             self.heldTxIDs = state.heldTxIDs
             self.deliveredTxIDs = Set(state.deliveredTxIDs)
-            self.holdIncomingFromFeed = state.holdIncomingFromFeed
+            self._holdIncomingFromFeed = state.holdIncomingFromFeed
             self._lastPersistenceError = nil
         } catch {
             self._lastPersistenceError = error
@@ -159,7 +169,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             creditedToRecipientTxIDs: Array(creditedToRecipientTxIDs),
             heldTxIDs: heldTxIDs,
             deliveredTxIDs: Array(deliveredTxIDs),
-            holdIncomingFromFeed: holdIncomingFromFeed
+            holdIncomingFromFeed: _holdIncomingFromFeed
         )
         do {
             let encoder = JSONEncoder()
@@ -214,7 +224,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     public func setUnreachable(_ unreachable: Bool) {
         lock.lock()
         defer { lock.unlock() }
-        isUnreachable = unreachable
+        _isUnreachable = unreachable
     }
 
     public func armUnreachable() {
@@ -243,7 +253,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
     public func setHoldIncomingFromFeed(_ hold: Bool) {
         lock.lock()
         defer { lock.unlock() }
-        holdIncomingFromFeed = hold
+        _holdIncomingFromFeed = hold
         persistStateLocked()
     }
 
@@ -256,7 +266,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
             nextSeq += 1
         }
         heldTxIDs.removeAll()
-        holdIncomingFromFeed = false
+        _holdIncomingFromFeed = false
         persistStateLocked()
     }
 
@@ -335,7 +345,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         let txId = String(format: "txn_%08x", txIdCounter)
 
         balances[from, default: 100000] -= amountCents
-        if holdIncomingFromFeed {
+        if _holdIncomingFromFeed {
             balances[toEva, default: 100000] += amountCents
             creditedToRecipientTxIDs.insert(txId)
         }
@@ -352,7 +362,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         )
         transactions[txId] = tx
 
-        if holdIncomingFromFeed {
+        if _holdIncomingFromFeed {
             heldTxIDs.append(txId)
         } else {
             changeLog.append((seq: nextSeq, txId: txId))
@@ -481,11 +491,11 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         _requestLog.removeAll()
         txIdCounter = 0
         lostAnswerArmed = false
-        isUnreachable = false
+        _isUnreachable = false
         busyScript.removeAll()
         repeatedEntriesMode = nil
         deliveredTxIDs.removeAll()
-        holdIncomingFromFeed = false
+        _holdIncomingFromFeed = false
         heldTxIDs.removeAll()
         creditedToRecipientTxIDs.removeAll()
         if let storageURL {
@@ -516,7 +526,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        if isUnreachable {
+        if _isUnreachable {
             return .unreachable
         }
         if !busyScript.isEmpty {
