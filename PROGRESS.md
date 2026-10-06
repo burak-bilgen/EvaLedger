@@ -89,3 +89,8 @@
 - Doubts: None; repository is clean, hardened, and verified.
 - Test result: Green (10/10 runs passed, 70/70 tests each run in ~0.065s).
 
+## Prompt 16: NOTES.md and README.md
+- What changed: Created NOTES.md with Section 1 (detailed misbehavior table and architectural decisions), Section 2 and 3 TODO(human) placeholders, Section 4 (next steps), and Bonus (50,000 transaction scaling analysis). Created README.md with project overview, running instructions, testing instructions, 10-line architecture summary, file map, and FakeBank isolation details.
+- Assumptions: Left NOTES.md sections 2 and 3 strictly as TODO(human) placeholders without reading WORKLOG.md.
+- Doubts: None; all prompts 1 through 16 successfully completed and committed.
+- Test result: Green (70 tests passed in 0.064s across 16 suites).
