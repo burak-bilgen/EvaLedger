@@ -54,6 +54,13 @@
 - Doubts: None; crash resilience and restart purely from on-disk state verified across all failure boundaries.
 - Test result: Green (59 tests passed across 11 suites).
 
+## Prompt 10: Scenario 5 (Late Rejection)
+- What changed: Added Scenario5LateRejectionTests verifying bank late rejections update transaction status in-place by ID, deliver authoritative refunded balances from the feed, and carry the rejection reason. Added projection unit test ensuring row summation is never used to derive balances.
+- Assumptions: The bank feed is authoritative for all balance adjustments following late rejections; the app never performs speculative refund calculations.
+- Doubts: None; verified in-place transaction replacement and balance projection immunity to arbitrary row changes.
+- Test result: Green (61 tests passed across 12 suites).
+
+
 
 
 
