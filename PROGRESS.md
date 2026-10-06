@@ -30,3 +30,9 @@
 - Doubts: None; atomic file operations and concurrency guarantees verified by 7 new tests.
 - Test result: Green (50 tests passed in 0.051s across 7 suites).
 
+## Prompt 6: PaymentEngine + Scenario 1 + Test Harness
+- What changed: Created EngineClock and IDGenerator protocols with deterministic test doubles, implemented PaymentEngine actor with write-ahead persistence, in-flight tracking, single-flight sync, and launch recovery. Created AppHarness with kill/relaunch capabilities and implemented Scenario 1 lifecycle test.
+- Assumptions: While held at the bank gate, bank holds 0 transactions and Eva has full initial balance; write-ahead persistence commits the attempt (.sending) to disk before network dispatch.
+- Doubts: None; full scenario flow and write-ahead persistence verified.
+- Test result: Green (51 tests passed across 8 suites).
+
