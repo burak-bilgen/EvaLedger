@@ -94,7 +94,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
 
     public init(uniqueHost: String = UUID().uuidString + ".bank.test") {
         self.host = uniqueHost
-        self.baseURL = URL(string: "https://\(uniqueHost)")!
+        self.baseURL = URL(string: "https://\(uniqueHost)") ?? URL(fileURLWithPath: "/")
         FakeBank.register(self, host: uniqueHost)
     }
 
@@ -679,7 +679,7 @@ nonisolated public final class FakeBank: @unchecked Sendable {
         lock.unlock()
 
         let body = ["error": ["code": "bank_busy", "message": "The bank is currently busy"]]
-        let data = try! JSONSerialization.data(withJSONObject: body)
+        let data = (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
 
         guard let url = request.url,
               let httpResponse = HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: "HTTP/1.1", headerFields: headers) else {
