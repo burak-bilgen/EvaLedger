@@ -159,4 +159,21 @@ struct LedgerStateTests {
         state.removeAttempt(id: id1)
         #expect(state.attempts.isEmpty)
     }
+
+    @Test func reconcileUnconfirmedTransitionsToUserFriendlyNotSent() {
+        var state = LedgerState()
+        let id1 = UUID()
+        let attempt = PaymentAttempt(
+            id: id1,
+            idempotencyKey: "k1",
+            toUsername: "alex",
+            amountCents: 1000,
+            description: "test",
+            createdAt: Date(),
+            state: .unconfirmed
+        )
+        state.recordAttempt(attempt)
+        state.reconcileUnconfirmed(inFlightIDs: [])
+        #expect(state.attempts.first?.state == .notSent(reason: "The bank has no record of this payment, so it was not sent. It is safe to try again."))
+    }
 }
